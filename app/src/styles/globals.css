@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: #08090d;
+    color: #f0f2ff;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 70% 35% at 15% 0%, rgba(0, 212, 255, 0.07), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 100%, rgba(167, 139, 250, 0.05), transparent 60%);
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@layer utilities {
+  .bg-gradient-cyan {
+    background: linear-gradient(135deg, #00d4ff, #0098cc);
+  }
+  .bg-gradient-green {
+    background: linear-gradient(135deg, #00e676, #00c853);
+  }
+  .text-shadow-none {
+    text-shadow: none;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0f1118;
+}
+::-webkit-scrollbar-thumb {
+  background: #252d42;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #303a56;
+}
+
+/* Highlight mark */
+mark.hl {
+  background: rgba(0, 212, 255, 0.22);
+  color: #00d4ff;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* Gen colors */
+.gen1 { color: #ffc107; font-weight: 600; }
+.gen2 { color: #00d4ff; font-weight: 600; }
+.gen3 { color: #00e676; font-weight: 600; }
