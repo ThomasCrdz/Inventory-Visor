@@ -18,6 +18,7 @@ export function FileGrid({ sourceStates, onFile }: FileGridProps) {
           icon={def.icon}
           name={def.name}
           role={def.role}
+          accept={def.accept}
           state={sourceStates[def.key]}
           onFile={onFile}
         />

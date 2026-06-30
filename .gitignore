@@ -2,3 +2,9 @@ node_modules/
 dist/
 .env
 *.local
+
+# Editor
+.vscode/
+
+# Datos de flota (sensibles: IMEI, SIM, cuentas) — no versionar
+Archivos de datos/

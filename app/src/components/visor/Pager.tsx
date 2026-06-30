@@ -1,4 +1,4 @@
-import { cn } from '@/lib/utils';
+﻿import { cn } from '@/lib/utils';
 
 interface PagerProps {
   page: number;
@@ -24,7 +24,7 @@ const PgBtn = ({
     onClick={onClick}
     disabled={disabled}
     className={cn(
-      'bg-s3 border border-b1 text-t2 font-mono text-[10px] px-[9px] py-1 rounded-[4px]',
+      'bg-s3 border border-b1 text-t2 font-mono text-[12px] px-[9px] py-1 rounded-[4px]',
       'cursor-pointer transition-all duration-150',
       !disabled && 'hover:border-cyan hover:text-cyan',
       disabled && 'opacity-30 cursor-default',
@@ -45,12 +45,12 @@ export function Pager({ page, totalPages, onPage }: PagerProps) {
       <PgBtn label="‹" onClick={() => onPage(page - 1)}   disabled={page === 1} />
       {pages.map((p, i) =>
         p === '…'
-          ? <span key={`sep-${i}`} className="text-t4 text-[11px]">…</span>
+          ? <span key={`sep-${i}`} className="text-t4 text-[13px]">…</span>
           : <PgBtn key={p} label={p} onClick={() => onPage(p as number)} active={p === page} />
       )}
       <PgBtn label="›" onClick={() => onPage(page + 1)}   disabled={page === totalPages} />
       <PgBtn label="»" onClick={() => onPage(totalPages)} disabled={page === totalPages} />
-      <span className="text-[10px] font-mono text-t3 ml-auto">
+      <span className="text-[12px] font-mono text-t3 ml-auto">
         Pág {page}/{totalPages}
       </span>
     </div>

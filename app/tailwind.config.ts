@@ -17,8 +17,8 @@ const config: Config = {
         b2:  '#303a56',
         t1:  '#f0f2ff',
         t2:  '#8b96b8',
-        t3:  '#4a5270',
-        t4:  '#272f48',
+        t3:  '#8b96b8',
+        t4:  '#8b96b8',
         cyan:   { DEFAULT: '#00d4ff', 2: '#0098cc' },
         fgreen: '#00e676',
         famber: '#ffc107',
@@ -27,7 +27,7 @@ const config: Config = {
       },
       fontFamily: {
         mono: ['"JetBrains Mono"', 'monospace'],
-        ui:   ['"Syne"', 'sans-serif'],
+        ui:   ['"Inter"', 'sans-serif'],
       },
       borderRadius: {
         fleet: '8px',

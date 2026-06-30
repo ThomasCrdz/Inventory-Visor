@@ -1,20 +1,19 @@
 import { useState, useCallback, useMemo } from 'react';
-import type { InventoryRow } from '../types';
-import { FILTER_DEFS, VCOLS } from '../lib/constants';
-
-type FilterText = Record<string, string>;
+import type { ColDef, FilterDef } from '../types';
 
 function parseTerms(val: string): Set<string> {
   return new Set(
-    val.split(/[\n,]+/)
-      .map(s => s.trim().toLowerCase())
-      .filter(s => s.length > 0),
+    val.split(/[\n,]+/).map(s => s.trim().toLowerCase()).filter(s => s.length > 0),
   );
 }
 
-export function useVisorFilters(allRows: InventoryRow[]) {
-  const [filterText, setFilterText] = useState<FilterText>(() =>
-    Object.fromEntries(FILTER_DEFS.map(d => [d.key, ''])),
+export function useTableFilters<T extends object>(
+  allRows: T[],
+  filterDefs: FilterDef[],
+  cols: ColDef[],
+) {
+  const [filterText, setFilterText] = useState<Record<string, string>>(() =>
+    Object.fromEntries(filterDefs.map(d => [d.key, ''])),
   );
   const [page, setPage]         = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -23,37 +22,40 @@ export function useVisorFilters(allRows: InventoryRow[]) {
 
   const filterMap = useMemo(() => {
     const m: Record<string, Set<string>> = {};
-    FILTER_DEFS.forEach(d => { m[d.key] = parseTerms(filterText[d.key] ?? ''); });
+    filterDefs.forEach(d => { m[d.key] = parseTerms(filterText[d.key] ?? ''); });
     return m;
-  }, [filterText]);
+  }, [filterText, filterDefs]);
 
   const activeFilters = useMemo(
-    () => FILTER_DEFS.filter(d => filterMap[d.key].size > 0),
-    [filterMap],
+    () => filterDefs.filter(d => filterMap[d.key].size > 0),
+    [filterMap, filterDefs],
   );
 
   const filtered = useMemo(() => {
     let rows = allRows.filter(row => {
-      const r = row as unknown as Record<string, string>;
+      const r = row as Record<string, unknown>;
       for (const d of activeFilters) {
-        const cell = (r[d.col] ?? '').toLowerCase();
+        const cell = String(r[d.col] ?? '').toLowerCase();
         if (![...filterMap[d.key]].some(t => cell.includes(t))) return false;
       }
       return true;
     });
 
     if (sortCol !== null) {
-      const colKey = VCOLS[sortCol].key;
-      rows = [...rows].sort((a, b) => {
-        const ar = a as unknown as Record<string, string>;
-        const br = b as unknown as Record<string, string>;
-        const av = (ar[colKey] ?? '').toLowerCase();
-        const bv = (br[colKey] ?? '').toLowerCase();
-        return av < bv ? -sortDir : av > bv ? sortDir : 0;
-      });
+      const colKey = cols[sortCol]?.key;
+      if (colKey) {
+        rows = [...rows].sort((a, b) => {
+          const ar = a as Record<string, unknown>, br = b as Record<string, unknown>;
+          const av = String(ar[colKey] ?? '').toLowerCase();
+          const bv = String(br[colKey] ?? '').toLowerCase();
+          const an = parseFloat(av), bn = parseFloat(bv);
+          if (!isNaN(an) && !isNaN(bn)) return (an - bn) * sortDir;
+          return av < bv ? -sortDir : av > bv ? sortDir : 0;
+        });
+      }
     }
     return rows;
-  }, [allRows, activeFilters, filterMap, sortCol, sortDir]);
+  }, [allRows, activeFilters, filterMap, sortCol, sortDir, cols]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 
@@ -69,9 +71,9 @@ export function useVisorFilters(allRows: InventoryRow[]) {
   }, []);
 
   const clearFilters = useCallback(() => {
-    setFilterText(Object.fromEntries(FILTER_DEFS.map(d => [d.key, ''])));
+    setFilterText(Object.fromEntries(filterDefs.map(d => [d.key, ''])));
     setPage(1);
-  }, []);
+  }, [filterDefs]);
 
   const sort = useCallback((ci: number) => {
     setSortCol(prev => {
@@ -91,19 +93,9 @@ export function useVisorFilters(allRows: InventoryRow[]) {
   }, []);
 
   return {
-    filterText,
-    filterMap,
-    filtered,
-    pageRows,
-    page,
-    pageSize,
-    totalPages,
-    sortCol,
-    sortDir,
-    setFilter,
-    clearFilters,
-    sort,
-    goPage,
-    changePageSize,
+    filterText, filterMap, filtered: filtered as T[],
+    pageRows: pageRows as T[], page, pageSize, totalPages,
+    sortCol, sortDir,
+    setFilter, clearFilters, sort, goPage, changePageSize,
   };
 }

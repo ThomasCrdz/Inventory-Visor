@@ -1,0 +1,3121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fleet Inventory</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>html,body{overflow-x:hidden;margin:0;padding:0;}
+
+:root{
+  --bg:#08090d; --s1:#0f1118; --s2:#161a24; --s3:#1e2333;
+  --b1:#252d42; --b2:#303a56;
+  --cyan:#00d4ff; --cyan2:#0098cc; --green:#00e676;
+  --amber:#ffc107; --red:#ff4560; --purple:#a78bfa;
+  --t1:#f0f2ff; --t2:#8b96b8; --t3:#4a5270; --t4:#272f48;
+  --mono:'JetBrains Mono',monospace; --ui:'Syne',sans-serif; --r:8px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--t1);font-family:var(--ui);min-height:100vh}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 70% 35% at 15% 0%,rgba(0,212,255,.07),transparent 60%),
+    radial-gradient(ellipse 50% 40% at 85% 100%,rgba(167,139,250,.05),transparent 60%)}
+
+/* ── NAV TABS ── */
+.nav{position:sticky;top:0;z-index:60;background:rgba(9,10,15,.92);
+  backdrop-filter:blur(14px);border-bottom:1px solid var(--b1);}
+.nav-inner{max-width:1400px;margin:0 auto;display:flex;align-items:center;
+  gap:0;padding:0 24px;}
+.nav-logo{display:flex;align-items:center;gap:9px;padding:14px 0;margin-right:24px;flex-shrink:0}
+.nav-logo-icon{width:30px;height:30px;border-radius:6px;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  display:grid;place-items:center;font-size:14px}
+.nav-logo-text{font-size:14px;font-weight:800;letter-spacing:-.3px}
+.nav-logo-text span{color:var(--cyan)}
+.tab{padding:16px 20px;font-size:12px;font-weight:600;letter-spacing:.3px;
+  color:var(--t3);cursor:pointer;border-bottom:2px solid transparent;
+  transition:all .2s;user-select:none;white-space:nowrap}
+.tab:hover{color:var(--t1)}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.badge{background:var(--s2);border:1px solid var(--b1);border-radius:20px;
+  padding:4px 12px;font-family:var(--mono);font-size:11px;color:var(--t2)}
+.badge b{color:var(--cyan)}
+
+/* ── PAGES ── */
+.page{display:none;position:relative;z-index:1}
+.page.active{display:block}
+.wrap{max-width:100%;margin:0 auto;padding:28px 24px 60px}
+
+/* ── SECTION LABEL ── */
+.sec{font-size:9px;font-family:var(--mono);color:var(--t3);
+  text-transform:uppercase;letter-spacing:1.5px;margin-bottom:11px}
+
+/* ── CARDS ── */
+.card{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);padding:18px}
+.card+.card{margin-top:14px}
+
+/* ── FILE GRID ── */
+.file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.fc{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);
+  padding:13px;display:flex;flex-direction:column;gap:7px;
+  transition:border-color .2s;position:relative;overflow:hidden}
+.fc::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--b1);transition:.3s}
+.fc.ok{border-color:rgba(0,230,118,.25)}.fc.ok::before{background:var(--green)}
+.fc.err{border-color:rgba(255,69,96,.3)}.fc.err::before{background:var(--red)}
+.fc-top{display:flex;align-items:center;gap:8px}
+.fc-icon{font-size:15px;line-height:1}
+.fc-name{font-size:12px;font-weight:600}
+.fc-role{font-size:10px;color:var(--t2);font-family:var(--mono)}
+.fc-st{font-size:10px;font-family:var(--mono);color:var(--t3)}
+.fc-st.ok{color:var(--green)} .fc-st.err{color:var(--red)}
+.fc-btn{display:flex;align-items:center;gap:5px;background:var(--s2);
+  border:1px dashed var(--b2);border-radius:5px;padding:6px 9px;
+  cursor:pointer;font-size:11px;color:var(--t2);transition:all .2s}
+.fc-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.fc-btn input{display:none}
+
+/* ── STATS ── */
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 0}
+.stat{background:var(--s2);border:1px solid var(--b1);border-radius:7px;padding:10px 16px;flex:1;min-width:110px}
+.stat-v{font-size:22px;font-weight:700;font-family:var(--mono);line-height:1.1}
+.stat-v.c{color:var(--cyan)}.stat-v.g{color:var(--green)}
+.stat-v.a{color:var(--amber)}.stat-v.p{color:var(--purple)}
+.stat-l{font-size:10px;color:var(--t2);margin-top:2px}
+
+/* ── PROGRESS ── */
+.prog-wrap{margin-top:14px;display:none}
+.prog-labels{display:flex;justify-content:space-between;font-size:10px;
+  font-family:var(--mono);color:var(--t2);margin-bottom:5px}
+.prog-track{width:100%;height:5px;background:var(--b1);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;width:0%;border-radius:3px;transition:width .25s;
+  background:linear-gradient(90deg,var(--cyan),var(--purple))}
+
+/* ── BUTTONS ── */
+button{font-family:var(--ui);cursor:pointer;border:none;outline:none}
+.btn-primary{background:linear-gradient(135deg,var(--cyan),var(--cyan2));
+  color:#000;font-weight:700;font-size:13px;padding:11px 22px;
+  border-radius:7px;transition:opacity .2s,transform .1s}
+.btn-primary:hover{opacity:.88}.btn-primary:active{transform:scale(.98)}
+.btn-primary:disabled{opacity:.3;cursor:not-allowed}
+.btn-green{background:linear-gradient(135deg,var(--green),#00c853);
+  color:#000;font-weight:700;font-size:13px;padding:11px 22px;border-radius:7px;
+  transition:opacity .2s}
+.btn-green:hover{opacity:.88}.btn-green:disabled{opacity:.3;cursor:not-allowed}
+.btn-ghost{background:transparent;border:1px solid var(--b2);color:var(--t2);
+  font-size:12px;padding:9px 16px;border-radius:7px;transition:all .2s}
+.btn-ghost:hover{border-color:var(--red);color:var(--red)}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;align-items:center}
+
+/* ── VISOR LAYOUT ── */
+.visor-layout{display:flex;flex-direction:column;gap:0;width:100%}
+
+/* ── FILTER SIDEBAR ── */
+.filter-sidebar{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);
+  padding:10px 14px;position:sticky;top:52px;z-index:20;
+  width:100%;box-sizing:border-box;overflow:hidden}
+.sidebar-title{font-size:9px;font-family:var(--mono);color:var(--t3);
+  text-transform:uppercase;letter-spacing:1.2px;margin-bottom:14px;
+  display:flex;justify-content:space-between;align-items:center}
+.sidebar-clear{font-size:10px;color:var(--t3);cursor:pointer;transition:color .15s}
+.sidebar-clear:hover{color:var(--red)}
+.fg{margin-bottom:0;flex:0 0 auto;min-width:180px;max-width:220px}
+.fg-label{font-size:9px;font-family:var(--mono);color:var(--t3);
+  text-transform:uppercase;letter-spacing:.9px;margin-bottom:5px}
+
+/* textarea filter (multi-line paste) */
+.filter-ta{
+  width:100%;background:var(--s2);border:1px solid var(--b1);
+  border-radius:6px;padding:7px 9px;
+  color:var(--t1);font-family:var(--mono);font-size:11px;
+  resize:vertical;min-height:52px;max-height:140px;
+  transition:border-color .2s;outline:none;line-height:1.5;
+}
+.filter-ta:focus{border-color:var(--cyan)}
+.filter-ta::placeholder{color:var(--t4)}
+.fg-hint{font-size:9px;color:var(--t4);font-family:var(--mono);margin-top:3px}
+
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.chip{display:inline-flex;align-items:center;gap:3px;
+  background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);
+  border-radius:20px;padding:2px 7px 2px 8px;
+  font-size:10px;font-family:var(--mono);color:var(--cyan)}
+.chip-x{cursor:pointer;font-size:12px;opacity:.55;transition:opacity .15s;line-height:1}
+.chip-x:hover{opacity:1}
+
+/* result info */
+.result-info{font-size:11px;font-family:var(--mono);color:var(--t2);
+  padding:10px 0 6px;border-top:1px solid var(--b1);margin-top:6px}
+.result-info b{color:var(--cyan)}
+
+/* ── TABLE PANEL ── */
+.table-panel{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r);overflow:hidden}
+.tbl-header{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:var(--s2);border-bottom:1px solid var(--b1)}
+.tbl-meta{font-size:10px;font-family:var(--mono);color:var(--t2)}
+.tbl-meta b{color:var(--cyan)}
+.pg-size{background:var(--s3);border:1px solid var(--b1);color:var(--t2);
+  font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:4px;outline:none;cursor:pointer}
+.tbl-scroll{overflow-x:auto;max-height:calc(100vh - 220px);overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:11.5px;font-family:var(--mono)}
+thead th{background:var(--s3);color:var(--t3);padding:8px 11px;
+  text-align:left;white-space:nowrap;position:sticky;top:0;z-index:2;
+  font-size:9px;text-transform:uppercase;letter-spacing:.8px;
+  border-bottom:1px solid var(--b1);cursor:pointer;user-select:none;transition:color .15s}
+thead th:hover{color:var(--t1)}
+thead th.asc .si::after{content:'↑';color:var(--cyan)}
+thead th.desc .si::after{content:'↓';color:var(--cyan)}
+thead th:not(.asc):not(.desc) .si::after{content:'↕';opacity:.25}
+.si{margin-left:3px}
+tbody tr{border-bottom:1px solid rgba(37,45,66,.5);transition:background .1s}
+tbody tr:hover{background:rgba(0,212,255,.04)}
+tbody td{padding:8px 11px;color:var(--t1);white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis}
+td.empty{color:var(--t4)!important;font-style:italic}
+td.rn{color:var(--t4)!important;text-align:right;padding-right:8px;width:34px}
+mark.hl{background:rgba(0,212,255,.22);color:var(--cyan);border-radius:2px;padding:0 1px}
+.gen1{color:var(--amber)}.gen2{color:var(--cyan)}.gen3{color:var(--green)}
+
+/* pager */
+.pager{display:flex;align-items:center;gap:6px;padding:10px 14px;
+  background:var(--s2);border-top:1px solid var(--b1);flex-wrap:wrap}
+.pg{background:var(--s3);border:1px solid var(--b1);color:var(--t2);
+  font-family:var(--mono);font-size:10px;padding:4px 9px;border-radius:4px;
+  cursor:pointer;transition:all .15s}
+.pg:hover:not(:disabled){border-color:var(--cyan);color:var(--cyan)}
+.pg:disabled{opacity:.3;cursor:default}
+.pg.on{background:rgba(0,212,255,.12);border-color:var(--cyan);color:var(--cyan)}
+.pg-sep{color:var(--t4);font-size:11px}
+.pager-info{font-size:10px;font-family:var(--mono);color:var(--t3);margin-left:auto}
+
+/* empty states */
+.empty-state{display:flex;flex-direction:column;align-items:center;
+  padding:48px 20px;gap:10px;text-align:center}
+.es-icon{font-size:36px;opacity:.35}
+.es-title{font-size:13px;color:var(--t2)}
+.es-sub{font-size:10px;font-family:var(--mono);color:var(--t3)}
+
+/* log */
+.log{margin-top:14px;background:var(--s2);border:1px solid var(--b1);
+  border-radius:7px;overflow:hidden;display:none}
+.log-hd{padding:7px 12px;font-size:9px;font-family:var(--mono);color:var(--t3);
+  text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--b1);
+  display:flex;justify-content:space-between}
+.log-body{padding:8px 12px;max-height:120px;overflow-y:auto;
+  font-family:var(--mono);font-size:10px;line-height:1.9}
+.ll{display:flex;gap:8px}
+.ll .ts{color:var(--t4);min-width:56px;flex-shrink:0}
+.ll.ok .m{color:var(--green)}.ll.warn .m{color:var(--amber)}
+.ll.err .m{color:var(--red)}.ll.info .m{color:var(--t2)}
+
+/* toast */
+.toast{position:fixed;bottom:20px;right:22px;background:var(--s2);
+  border:1px solid var(--b1);border-radius:7px;padding:9px 15px;
+  font-size:11px;font-family:var(--mono);z-index:999;
+  opacity:0;transform:translateY(14px);transition:all .22s;pointer-events:none}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.ok{border-color:rgba(0,230,118,.5);color:var(--green)}
+.toast.err{border-color:rgba(255,69,96,.5);color:var(--red)}
+
+/* visor drop overlay */
+.visor-drop{background:var(--s1);border:2px dashed var(--b2);border-radius:var(--r);
+  padding:40px;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:16px}
+.visor-drop.drag{border-color:var(--cyan);background:rgba(0,212,255,.03)}
+.visor-drop input{display:none}
+.visor-drop-title{font-size:14px;font-weight:700;margin-bottom:6px}
+.visor-drop-sub{font-size:11px;font-family:var(--mono);color:var(--t2)}
+
+@media(max-width:640px){.wrap{padding:14px 14px 40px}}
+
+
+/* ── RESPONSIVE: 16:9 desktop + iPhone ── */
+
+/* Nav: allow tabs to wrap on small screens */
+.nav-inner{flex-wrap:wrap;gap:4px}
+.nav-inner .tab{font-size:10px;padding:6px 10px;white-space:nowrap}
+
+/* Wrap: tighter padding on mobile */
+@media(max-width:600px){
+  .wrap{padding:12px 10px 40px}
+  .nav-inner{padding:6px 10px}
+  .nav-inner .logo{font-size:13px}
+  .tbl-header{flex-direction:column;align-items:flex-start;gap:6px}
+  .tbl-header .tbl-meta{font-size:10px}
+  .tbl-header button,.tbl-header select{font-size:10px;padding:5px 8px}
+  .pager{flex-wrap:wrap;gap:3px}
+  .pager button{padding:4px 7px;font-size:10px}
+  .result-info{font-size:10px}
+}
+
+/* Sidebar: collapse to top on narrow screens */
+@media(max-width:900px){
+  .filter-sidebar{position:relative;top:auto;max-height:260px;overflow-y:auto}
+  .visor-layout{grid-template-columns:1fr}
+  .fc-grid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+}
+
+/* Table scroll: full width always, proper height on mobile */
+.tbl-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;
+  width:100%;box-sizing:border-box}
+@media(max-width:600px){
+  .tbl-scroll{max-height:calc(100vh - 180px)}
+  table{font-size:10px}
+  tbody td{padding:5px 7px;max-width:140px}
+  thead th{padding:6px 7px;font-size:9px}
+}
+@media(min-width:601px) and (max-width:1280px){
+  .tbl-scroll{max-height:calc(100vh - 200px)}
+  table{font-size:11px}
+}
+@media(min-width:1281px){
+  .tbl-scroll{max-height:calc(100vh - 210px)}
+  table{font-size:11.5px}
+}
+
+/* Table column min-widths to prevent crushing */
+thead th,tbody td{min-width:90px}
+thead th:first-child,tbody td:first-child{min-width:32px;width:32px}
+
+/* Export cards: tighter on mobile */
+@media(max-width:600px){
+  .fc{padding:12px}
+  .fc-name{font-size:12px}
+  .fc-role{font-size:10px}
+  .fc-btn{font-size:11px;padding:7px 10px}
+  .process-bar{flex-direction:column;align-items:stretch}
+  .process-bar button{justify-content:center}
+}
+
+/* Log panel: shorter on mobile */
+@media(max-width:600px){
+  .log-panel{max-height:120px;font-size:10px}
+}
+
+/* iphone safe area */
+@supports(padding-bottom:env(safe-area-inset-bottom)){
+  .wrap{padding-bottom:calc(40px + env(safe-area-inset-bottom))}
+}
+
+/* ── HORIZONTAL FILTER BAR ── */
+.filter-bar-wrap{
+  display:flex;align-items:flex-start;gap:8px;
+  padding:4px 0 8px 0;
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+  width:100%;box-sizing:border-box;
+  /* Scrollbar styling */
+  scrollbar-width:thin;scrollbar-color:var(--b2) transparent;
+}
+.filter-bar-wrap .fg{
+  flex:0 0 auto;min-width:170px;max-width:200px;margin-bottom:0;
+}
+.filter-bar-actions{
+  display:flex;flex-direction:column;gap:6px;flex:0 0 auto;align-self:flex-start;
+  padding-top:0;
+}
+.filter-bar-actions button,.filter-bar-actions select{
+  white-space:nowrap;width:100%;
+}
+.result-info{
+  font-size:10px;color:var(--t2);padding:4px 0 0 0;white-space:nowrap;
+}
+/* Table panel takes full width */
+.table-full{width:100%;overflow:hidden;min-width:0}
+/* tbl-header: export always top-left */
+.tbl-header{
+  display:flex;align-items:center;justify-content:flex-start;gap:10px;
+  padding:8px 14px;background:var(--s2);border-bottom:1px solid var(--b1);
+  position:sticky;left:0;
+}
+.tbl-header .tbl-meta{margin-left:auto}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-inner">
+    <div class="nav-logo">
+      <div class="nav-logo-icon">⚡</div>
+      <div class="nav-logo-text">Fleet <span>Inventory</span></div>
+    </div>
+    <div class="tab active" onclick="switchTab('export')" id="tab-export">📥 Exportar</div>
+    <div class="tab" onclick="switchTab('visor')" id="tab-visor">🔍 Visor</div>
+    <div class="tab" onclick="switchTab('sim')" id="tab-sim">💳 Gestión de SIM</div>
+    <div class="tab" onclick="switchTab('m2m')" id="tab-m2m">📶 SIMs M2M</div>
+    <div class="tab" onclick="switchTab('cobro')" id="tab-cobro">💰 Cobro</div>
+    <div class="nav-right">
+      <div class="badge" id="navBadge" style="display:none"><b id="navCount">0</b> registros</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  PAGE: EXPORTAR                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="page active" id="page-export">
+<div class="wrap">
+
+  <div class="sec">1 — Archivos de origen</div>
+  <div class="file-grid" id="fileGrid">
+
+    <div class="fc" id="fc-unidades">
+      <div class="fc-top"><span class="fc-icon">📡</span>
+        <div><div class="fc-name">Unidades sin comunicar</div>
+        <div class="fc-role">Fuente principal</div></div></div>
+      <div class="fc-st" id="st-unidades">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar CSV
+        <input type="file" accept=".csv" onchange="loadSource('unidades',this)"></label>
+    </div>
+
+    <div class="fc" id="fc-inventory">
+      <div class="fc-top"><span class="fc-icon">🔧</span>
+        <div><div class="fc-name">Inventory Report</div>
+        <div class="fc-role">device_registration por serial</div></div></div>
+      <div class="fc-st" id="st-inventory">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar CSV
+        <input type="file" accept=".csv" onchange="loadSource('inventory',this)"></label>
+    </div>
+
+    <div class="fc" id="fc-invCustom">
+      <div class="fc-top"><span class="fc-icon">📊</span>
+        <div><div class="fc-name">Inventory Custom</div>
+        <div class="fc-role">Fuente principal de unidades Guardian</div></div></div>
+      <div class="fc-st" id="st-invCustom">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar CSV
+        <input type="file" accept=".csv,.xlsx" onchange="loadSource('invCustom',this)"></label>
+    </div>
+
+    <div class="fc" id="fc-hardware">
+      <div class="fc-top"><span class="fc-icon">🛰️</span>
+        <div><div class="fc-name">Listado de Hardware</div>
+        <div class="fc-role">IMEI GPS · SIM GPS</div></div></div>
+      <div class="fc-st" id="st-hardware">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar CSV
+        <input type="file" accept=".csv" onchange="loadSource('hardware',this)"></label>
+    </div>
+
+    <div class="fc" id="fc-sims">
+      <div class="fc-top"><span class="fc-icon">💳</span>
+        <div><div class="fc-name">M2M SIMs</div>
+        <div class="fc-role">ICC / SIM por IMEI</div></div></div>
+      <div class="fc-st" id="st-sims">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar CSV
+        <input type="file" accept=".csv" onchange="loadSource('sims',this)"></label>
+    </div>
+
+    <div class="fc" id="fc-pod">
+      <div class="fc-top"><span class="fc-icon">📋</span>
+        <div><div class="fc-name">POD</div>
+        <div class="fc-role">SIMs secundarias</div></div></div>
+      <div class="fc-st" id="st-pod">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar CSV
+        <input type="file" accept=".csv" onchange="loadSource('pod',this)"></label>
+    </div>
+
+    <div class="fc" id="fc-imeiExtra">
+      <div class="fc-top"><span class="fc-icon">📟</span>
+        <div><div class="fc-name">IMEI Provisional GEN3</div>
+        <div class="fc-role">Fallback IMEI por serial · XLSX o CSV</div></div></div>
+      <div class="fc-st" id="st-imeiExtra">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar archivo
+        <input type="file" accept=".csv,.xlsx" onchange="loadImeiExtra(this)"></label>
+    </div>
+
+    <div class="fc" id="fc-ffcVersiones">
+      <div class="fc-top"><span class="fc-icon">📷</span>
+        <div><div class="fc-name">Versiones FFC (Howen)</div>
+        <div class="fc-role">Modelo Howen por IMEI FFC · CSV</div></div></div>
+      <div class="fc-st" id="st-ffcVersiones">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar CSV
+        <input type="file" accept=".csv,.xlsx" onchange="loadFfcVersiones(this)"></label>
+    </div>
+
+    <div class="fc" id="fc-hwList">
+      <div class="fc-top"><span class="fc-icon">🗂️</span>
+        <div><div class="fc-name">Hardware List</div>
+        <div class="fc-role">IMEI → Modelo (fuente adicional)</div></div></div>
+      <div class="fc-st" id="st-hwList">Sin cargar</div>
+      <label class="fc-btn">📂 Seleccionar CSV
+        <input type="file" accept=".csv,.xlsx" onchange="loadSource('hwList',this)"></label>
+    </div>
+
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="sec" style="margin-bottom:0">2 — Procesar y exportar</div>
+
+    <div class="stats" id="statsBox" style="display:none">
+      <div class="stat"><div class="stat-v c" id="sv-total">0</div><div class="stat-l">Registros</div></div>
+      <div class="stat"><div class="stat-v g" id="sv-serial">0</div><div class="stat-l">Con serial</div></div>
+      <div class="stat"><div class="stat-v a" id="sv-sim">0</div><div class="stat-l">Con SIM Guardian</div></div>
+      <div class="stat"><div class="stat-v p" id="sv-gps">0</div><div class="stat-l">Con IMEI GPS</div></div>
+    </div>
+
+    <div class="prog-wrap" id="progWrap">
+      <div class="prog-labels"><span id="progMsg">Preparando...</span><span id="progPct">0%</span></div>
+      <div class="prog-track"><div class="prog-fill" id="progFill"></div></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" id="btnProc" onclick="startProcess()">⚡ Procesar y cruzar datos</button>
+      <button class="btn-green"   id="btnExp"  onclick="doExport()" style="display:none">⬇ Exportar XLSX</button>
+      <button class="btn-green"   id="btnVis"  onclick="goToVisor()" style="display:none">🔍 Ver en Visor</button>
+      <button class="btn-green"   id="btnM2m"  onclick="goToM2m()" style="display:none">📶 Ver en SIMs M2M</button>
+      <button class="btn-green"   id="btnSim"  onclick="goToSim()" style="display:none">💳 Ver en Gestión SIM</button>
+      <button class="btn-ghost"   id="btnRst"  onclick="resetExport()" style="display:none">✕ Limpiar</button>
+    </div>
+
+    <div class="log" id="logBox">
+      <div class="log-hd"><span>Log</span><span id="logCnt">0</span></div>
+      <div class="log-body" id="logBody"></div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  PAGE: VISOR                                       -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="page" id="page-visor">
+<div class="wrap">
+
+  <!-- Drop zone (shown when no visor data) -->
+  <div id="visorDrop" class="visor-drop"
+    ondragover="vDragOver(event)" ondragleave="vDragLeave(event)" ondrop="vDrop(event)">
+    <label style="cursor:pointer;display:block">
+      <div style="font-size:30px;margin-bottom:8px">📋</div>
+      <div class="visor-drop-title">Arrastra un XLSX aquí o haz clic para cargar</div>
+      <div class="visor-drop-sub">Carga el archivo exportado desde la pestaña Exportar<br>o cualquier XLSX con el mismo formato de columnas</div>
+      <input type="file" accept=".xlsx,.csv" onchange="vFileChange(this)">
+    </label>
+  </div>
+
+  <!-- Main visor layout -->
+  <div class="visor-layout" id="visorLayout" style="display:none">
+    <div class="filter-sidebar">
+      <div class="sidebar-title">
+        Filtros
+        <span style="display:flex;gap:8px;align-items:center">
+          <button class="btn-green" style="font-size:10px;padding:4px 10px;border-radius:5px" onclick="exportVFiltered()">⬇ Exportar</button>
+          <span class="sidebar-clear" onclick="clearFilters()">✕ Limpiar</span>
+        </span>
+      </div>
+      <div class="result-info" id="resultInfo" style="margin-bottom:6px">—</div>
+      <div class="filter-bar-wrap" id="filterGroups"></div>
+    </div>
+    <div class="table-full">
+      <div class="table-panel" id="tablePanel">
+        <div class="empty-state">
+          <div class="es-icon">🔍</div>
+          <div class="es-title">Carga un archivo para empezar</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  PAGE: SIMs M2M                                    -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="page" id="page-m2m">
+<div class="wrap">
+
+  <div id="m2mDrop" class="visor-drop"
+    ondragover="vDragOver(event)" ondragleave="vDragLeave(event)" ondrop="onM2mDrop(event)">
+    <label style="cursor:pointer;display:block">
+      <div style="font-size:30px;margin-bottom:8px">📶</div>
+      <div class="visor-drop-title">Arrastra el CSV de SIMs M2M aquí o haz clic</div>
+      <div class="visor-drop-sub">Carga primero los reportes en la pestaña Exportar<br>luego haz clic en "📶 Ver en SIMs M2M"</div>
+      <input type="file" accept=".csv,.xlsx" onchange="m2mFileChange(this)">
+    </label>
+  </div>
+
+  <div class="visor-layout" id="m2mLayout" style="display:none">
+    <div class="filter-sidebar">
+      <div class="sidebar-title">
+        Filtros
+        <span style="display:flex;gap:8px;align-items:center">
+          <button class="btn-green" style="font-size:10px;padding:4px 10px;border-radius:5px" onclick="exportM2m()">⬇ Exportar</button>
+          <span class="sidebar-clear" onclick="clearM2mFilters()">✕ Limpiar</span>
+        </span>
+      </div>
+      <div class="result-info" id="m2mResultInfo" style="margin-bottom:6px">—</div>
+      <div class="filter-bar-wrap" id="m2mFilterGroups"></div>
+    </div>
+    <div class="table-full">
+      <div class="table-panel" id="m2mTablePanel">
+        <div class="empty-state">
+          <div class="es-icon">📶</div>
+          <div class="es-title">Carga el archivo de SIMs para empezar</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div class="page" id="page-cobro">
+<div class="wrap">
+  <div id="cobroDrop" class="visor-drop"
+    ondragover="vDragOver(event)" ondragleave="vDragLeave(event)" ondrop="onCobroDrop(event)">
+    <label style="cursor:pointer;display:block">
+      <div style="font-size:30px;margin-bottom:8px">💰</div>
+      <div class="visor-drop-title">Arrastra el archivo de Cobro aquí o haz clic</div>
+      <div class="visor-drop-sub">Excel con hoja "Detalle" · Asegúrate de haber procesado primero en la pestaña Exportar</div>
+      <input type="file" accept=".xlsx,.xls" onchange="cobroFileChange(this)">
+    </label>
+  </div>
+  <div class="visor-layout" id="cobroLayout" style="display:none">
+    <div class="filter-sidebar">
+      <div class="sidebar-title">
+        Filtros
+        <span style="display:flex;gap:8px;align-items:center">
+          <button class="btn-green" style="font-size:10px;padding:4px 10px;border-radius:5px" onclick="exportCobro()">⬇ Exportar</button>
+          <span class="sidebar-clear" onclick="clearCobroFilters()">✕ Limpiar</span>
+        </span>
+      </div>
+      <div class="result-info" id="cobroResultInfo" style="margin-bottom:6px">—</div>
+      <div class="filter-bar-wrap" id="cobroFilterGroups"></div>
+    </div>
+    <div class="table-full">
+      <div class="table-panel" id="cobroTablePanel">
+        <div class="empty-state">
+          <div class="es-icon">💰</div>
+          <div class="es-title">Cargando cobro...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  TAB NAV
+// ═══════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  document.getElementById('page-'+id).classList.add('active');
+}
+
+function goToVisor() {
+  if (exportResult.length) loadVisorFromMemory(exportResult);
+  switchTab('visor');
+}
+
+function goToSim() {
+  if (raw.invCustom && raw.invCustom.length) {
+    buildSimRows();
+  } else if (exportResult.length) {
+    loadSimFromMemory(exportResult);
+  }
+  switchTab('sim');
+}
+
+// ═══════════════════════════════════════════════
+//  ── EXPORT PAGE ──
+// ═══════════════════════════════════════════════
+const raw = {unidades:null,inventory:null,hardware:null,sims:null,pod:null,imeiExtra:null,ffcVersiones:null,invCustom:null,m2mSims:null,hwList:null};
+let exportResult = [];
+let logCount = 0;
+
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/,'');
+  const lines = text.split(/\r?\n/);
+  let sep=',', start=0;
+  if (lines[0].trim().startsWith('sep=')) { sep=lines[0].trim().slice(4).trim()||','; start=1; }
+  else if ((lines[0].match(/;/g)||[]).length > (lines[0].match(/,/g)||[]).length) sep=';';
+  const parseRow = line => {
+    const out=[]; let cur='',inQ=false;
+    for (let i=0;i<line.length;i++) {
+      const c=line[i];
+      if (c==='"') { if (inQ&&line[i+1]==='"'){cur+='"';i++;}else inQ=!inQ; }
+      else if (c===sep&&!inQ){out.push(cur);cur='';}
+      else cur+=c;
+    }
+    out.push(cur);
+    return out;
+  };
+  const cv = v => v.replace(/^=?"?|"?$/g,'').trim();
+  const hdrs = parseRow(lines[start]).map(cv);
+  const rows=[];
+  for (let i=start+1;i<lines.length;i++) {
+    const line=lines[i]; if(!line.trim()) continue;
+    const vals=parseRow(line); if(vals.every(v=>!v.trim())) continue;
+    const obj={}; hdrs.forEach((h,idx)=>{ obj[h]=cv(vals[idx]||''); }); rows.push(obj);
+  }
+  return rows;
+}
+
+function loadSource(key, inp) {
+  const file=inp.files[0]; if(!file) return;
+  const fr=new FileReader();
+  fr.onload=e=>{
+    try {
+      const rows=parseCSV(e.target.result);
+      raw[key]=rows;
+      document.getElementById('fc-'+key).className='fc ok';
+      const st=document.getElementById('st-'+key);
+      st.className='fc-st ok'; st.textContent=`✓ ${rows.length.toLocaleString()} filas`;
+      addLog('ok',`[${key.toUpperCase()}] ${file.name} · ${rows.length} filas`);
+    } catch(e) {
+      document.getElementById('fc-'+key).className='fc err';
+      document.getElementById('st-'+key).className='fc-st err';
+      document.getElementById('st-'+key).textContent='✗ Error al parsear';
+      addLog('err',`[${key.toUpperCase()}] ${e.message}`);
+    }
+  };
+  fr.readAsText(file,'UTF-8');
+}
+
+const normKey = v => (v||'').replace(/\D/g,'');
+
+// Load Versiones FFC (Howen model by FFC IMEI)
+function loadFfcVersiones(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const fr = new FileReader();
+  fr.onload = e => {
+    try {
+      let rows = [];
+      if (ext === 'xlsx' || ext === 'xls') {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', raw:false});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      } else {
+        rows = parseCSV(e.target.result);
+      }
+      raw.ffcVersiones = rows;
+      document.getElementById('fc-ffcVersiones').className = 'fc ok';
+      const st = document.getElementById('st-ffcVersiones');
+      st.className = 'fc-st ok';
+      st.textContent = `✓ ${rows.length.toLocaleString()} filas — ${file.name}`;
+      addLog('ok', `[FFCVERSIONES] ${file.name} · ${rows.length} filas`);
+    } catch(err) {
+      document.getElementById('fc-ffcVersiones').className = 'fc err';
+      document.getElementById('st-ffcVersiones').className = 'fc-st err';
+      document.getElementById('st-ffcVersiones').textContent = '✗ Error al cargar';
+      addLog('err', `[FFCVERSIONES] ${err.message}`);
+    }
+  };
+  if (ext === 'xlsx' || ext === 'xls') fr.readAsArrayBuffer(file);
+  else fr.readAsText(file, 'UTF-8');
+}
+
+
+// Load IMEI Extra file (XLSX or CSV) — keyed by serial_number
+function loadImeiExtra(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const fr = new FileReader();
+  fr.onload = e => {
+    try {
+      let rows = [];
+      if (ext === 'xlsx' || ext === 'xls') {
+        const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array', raw:false});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      } else {
+        rows = parseCSV(e.target.result);
+      }
+      raw.imeiExtra = rows;
+      document.getElementById('fc-imeiExtra').className = 'fc ok';
+      const st = document.getElementById('st-imeiExtra');
+      st.className = 'fc-st ok';
+      st.textContent = `✓ ${rows.length.toLocaleString()} filas — ${file.name}`;
+      addLog('ok', `[IMEIEXTRA] ${file.name} · ${rows.length} filas`);
+    } catch(err) {
+      document.getElementById('fc-imeiExtra').className = 'fc err';
+      document.getElementById('st-imeiExtra').className = 'fc-st err';
+      document.getElementById('st-imeiExtra').textContent = '✗ Error al cargar';
+      addLog('err', `[IMEIEXTRA] ${err.message}`);
+    }
+  };
+  if (ext === 'xlsx' || ext === 'xls') fr.readAsArrayBuffer(file);
+  else fr.readAsText(file, 'UTF-8');
+}
+
+function buildImeiMap(rows,col) {
+  const m=new Map();
+  if(!rows) return m;
+  rows.forEach(r=>{ const k=normKey(r[col]); if(k&&k.length>=10) m.set(k,r); });
+  return m;
+}
+
+function buildSimMap(simsRows,podRows) {
+  const m=new Map();
+  if(simsRows) simsRows.forEach(r=>{ const i=normKey(r['IMEI']),c=normKey(r['ICC']); if(i&&c) m.set(i,c); });
+  if(podRows) podRows.forEach(r=>{ const i=normKey(r['IMEI']),c=normKey(r["Subscriber ID #"]||r['MSISDN']||''); if(i&&c&&!m.has(i)) m.set(i,c); });
+  return m;
+}
+
+function startProcess() {
+  // Combine Unidades + Inventory Custom (deduplicated by serial, then vehicle)
+  // Unidades rows take priority; Custom adds rows missing from Unidades
+  const _base = raw.unidades || raw.invCustom || raw.inventory || [];
+  let main = [..._base];
+  if (raw.unidades && raw.invCustom) {
+    const _uSerials = new Set(_base.map(r => (r.guardianSerial||r.serial_number||'').trim().toLowerCase()).filter(Boolean));
+    const _uVehicles = new Set(_base.map(r => (r.vehicleName||r.vehicle||'').trim().toLowerCase()).filter(Boolean));
+    const _extra = raw.invCustom.filter(r => {
+      const s = (r.serial_number||'').trim().toLowerCase();
+      const v = (r.vehicle||'').trim().toLowerCase();
+      return s && !_uSerials.has(s) && (!v || !_uVehicles.has(v));
+    });
+    main = [..._base, ..._extra];
+    addLog('info', `Fuentes combinadas: ${_base.length} Unidades + ${_extra.length} filas exclusivas de Inventory Custom`);
+  }
+  // Deduplicate main: for rows with same vehicle name, keep the one WITH serial
+  // This removes empty-shell duplicates (e.g. COPEC row with no serial when
+  // the same vehicle exists under ILZAUSPE with serial)
+  {
+    const _vehMap = new Map();
+    main.forEach(r => {
+      const v = (r.vehicleName||r.vehicle||'').trim().toLowerCase();
+      const s = (r.guardianSerial||r.serial_number||'').trim();
+      if (!v) return;
+      if (!_vehMap.has(v)) { _vehMap.set(v, r); }
+      else {
+        const existing = _vehMap.get(v);
+        const existingSerial = (existing.guardianSerial||existing.serial_number||'').trim();
+        // Replace if current row has serial and existing doesn't
+        if (s && !existingSerial) _vehMap.set(v, r);
+      }
+    });
+    const _deduped = main.filter(r => {
+      const v = (r.vehicleName||r.vehicle||'').trim().toLowerCase();
+      if (!v) return true; // keep rows with no vehicle name as-is
+      return _vehMap.get(v) === r;
+    });
+    const _removed = main.length - _deduped.length;
+    if (_removed > 0) addLog('info', `Deduplicación: ${_removed} filas sin serial eliminadas por tener duplicado con serial`);
+    main = _deduped;
+  }
+  if(!main){toast('Carga al menos Unidades sin comunicar o Inventory Report','err');return;}
+  document.getElementById('btnProc').disabled=true;
+  document.getElementById('progWrap').style.display='block';
+  setProgress(0,'Construyendo índices...');
+  addLog('info','Iniciando procesamiento...');
+  setTimeout(()=>{
+    const invMap=buildImeiMap(raw.inventory,'serial_number');
+    const invImei=buildImeiMap(raw.inventory,'imei');
+    const hwMap=buildImeiMap(raw.hardware,'imei');
+    // hwAllMap: no length filter — needed for Howen FFC short IMEIs (4-8 digits)
+    const hwAllMap=new Map();
+    if(raw.hardware) raw.hardware.forEach(r=>{ const k=normKey(r['imei']||''); if(k) hwAllMap.set(k,r); });
+    const simMap=buildSimMap(raw.sims,raw.pod);
+    // invVeh stores arrays so duplicate vehicle names across accounts don't clobber each other
+    const invVeh=new Map();
+    if(raw.inventory) raw.inventory.forEach(r=>{
+      const v=(r.vehicle||r.vehicleName||'').toLowerCase().trim();
+      if(v){ if(!invVeh.has(v)) invVeh.set(v,[]); invVeh.get(v).push(r); }
+    });
+    // Serial-keyed map for monitored lookup
+    const invSerialMap=new Map();
+    if(raw.inventory) raw.inventory.forEach(r=>{ const k=(r.serial_number||'').trim().toLowerCase(); if(k) invSerialMap.set(k,r); });
+    // Inventory Custom: full index maps (primary source for units)
+    const invCustomMap=new Map();     // serial→row
+    const invCustomImei=new Map();    // imei digits→row
+    const invCustomVeh=new Map();     // vehicle→rows[]
+    if(raw.invCustom) raw.invCustom.forEach(r=>{
+      const ks=(r.serial_number||'').trim().toLowerCase(); if(ks) invCustomMap.set(ks,r);
+      const ki=normKey(r.imei||''); if(ki&&ki.length>=10) invCustomImei.set(ki,r);
+      const kv=(r.vehicle||'').toLowerCase().trim();
+      if(kv){ if(!invCustomVeh.has(kv)) invCustomVeh.set(kv,[]); invCustomVeh.get(kv).push(r); }
+    });
+    // Serial→IMEI fallback map from imeiExtra file (GEN3 provisional)
+    const imeiExtraMap=new Map();
+    if(raw.imeiExtra) raw.imeiExtra.forEach(r=>{ const k=(r.serial_number||r['serial_number']||'').trim().toLowerCase(); const v=(r.imei||r['imei']||'').trim(); if(k&&v) imeiExtraMap.set(k,v); });
+    // hwList: additional IMEI→model source
+    const hwListMap=new Map();
+    if(raw.hwList) raw.hwList.forEach(r=>{ const k=normKey(r['imei']||r['IMEI']||''); if(k&&k.length>=10) hwListMap.set(k,(r['name']||r['Name']||'').trim()); });
+    // ICC→simRow map for SIM detail fields (Guardian, FFC, GPS)
+    const simsIccMap=new Map();
+    if(raw.sims) raw.sims.forEach(r=>{ const k=normKey(r['ICC']||''); if(k&&k.length>=10) simsIccMap.set(k,r); });
+    // ICC→podRow map for GPS SIM fields (POD keyed by Subscriber ID = ICC)
+    const podIccMap=new Map();
+    if(raw.pod) raw.pod.forEach(r=>{ const k=normKey(r["Subscriber ID #"]||''); if(k&&k.length>=10) podIccMap.set(k,r); });
+    // FFC IMEI→Modelo Howen map from Versiones report
+    const ffcVersionesMap=new Map();
+    if(raw.ffcVersiones) raw.ffcVersiones.forEach(r=>{
+      const k=normKey(r['Imei']||'');
+      const v=(r['[Modelo] Howen']||'').trim();
+      if(k&&v) ffcVersionesMap.set(k,v);
+    });
+    setProgress(10,'Procesando...');
+    exportResult=[];
+    let i=0;
+    const CHUNK=500;
+    function chunk(){
+      const end=Math.min(i+CHUNK,main.length);
+      for(;i<end;i++) exportResult.push(buildRow(main[i],invMap,invImei,invVeh,hwMap,hwAllMap,simMap,invSerialMap,simsIccMap,imeiExtraMap,ffcVersionesMap,invCustomMap,invCustomImei,invCustomVeh,podIccMap,hwListMap));
+      setProgress(Math.round((i/main.length)*85)+10,`${i.toLocaleString()} / ${main.length.toLocaleString()}`);
+      if(i<main.length) setTimeout(chunk,0); else finalize();
+    }
+    setTimeout(chunk,0);
+  },50);
+}
+
+function buildRow(r,invMap,invImei,invVeh,hwMap,hwAllMap,simMap,invSerialMap,simsIccMap,imeiExtraMap,ffcVersionesMap,invCustomMap,invCustomImei,invCustomVeh,podIccMap,hwListMap) {
+  const c=v=>(v||'').trim();
+  // cuenta/flota: Custom primary → row source (Unidades/InventoryReport) fallback
+  const _rowCuenta = c(r.companyName||r.account||'');
+  const _rowFlota  = c(r.fleetName||r.fleet||'');
+  const vname=c(r.vehicleName||r.vehicle||'');
+  const vplate=c(r.vehiclePlate||r.vehicle_registration||'');
+  const vehicle=vname||vplate;
+  // Lookup Custom by vehicle+account to get correct cuenta/flota
+  // (will be overridden after serial resolution when custRow is found)
+  let cuenta=_rowCuenta, flota=_rowFlota;
+  // Priority for serial + IMEI Guardian:
+  // 1. Inventory Custom → 2. InventoryReport → 3. Unidades sin comunicar
+  // Start from row key (any source) then override in priority order
+  const _rowSerial = c(r.guardianSerial||r.serial_number||'');
+  const _rowImeiG  = c(r.guardianImei||r.imei||'');
+  let serial='', imeiG='';
+  let imeiFFC=c(r.ffcImei||'');
+  let imeiGPS=c(r.gpsImei||'');
+  // Step 1: Inventory Custom (primary)
+  if(invCustomMap||invCustomImei||invCustomVeh){
+    let cust=null;
+    if(_rowSerial) cust=invCustomMap&&invCustomMap.get(_rowSerial.toLowerCase());
+    if(!cust&&_rowImeiG) cust=invCustomImei&&invCustomImei.get(normKey(_rowImeiG));
+    if(!cust&&vehicle){
+      const cc=(invCustomVeh&&invCustomVeh.get(vehicle.toLowerCase()))||[];
+      if(cc.length===1) cust=cc[0];
+      else if(cc.length>1){
+        cust=cc.find(x=>(x.account||'').toLowerCase()===_rowCuenta.toLowerCase()&&(x.fleet||'').toLowerCase()===_rowFlota.toLowerCase())
+          ||cc.find(x=>(x.account||'').toLowerCase()===_rowCuenta.toLowerCase())
+          // If no same-account match, only use cross-account if row has no serial/imei
+          // (orphan row) AND adopt that candidate's account as the authoritative account
+          ||(!_rowSerial&&!_rowImeiG ? cc.find(x=>x.serial_number&&x.serial_number.trim())||null : null);
+      }
+    }
+    if(cust){
+      serial=c(cust.serial_number||'');
+      imeiG=c(cust.imei||'');
+      // Override cuenta/flota from Custom (authoritative source)
+      if(cust.account) cuenta=c(cust.account);
+      if(cust.fleet)   flota=c(cust.fleet);
+    }
+  }
+  // Step 2: InventoryReport (fallback)
+  if(raw.inventory){
+    let inv=null;
+    if(serial) inv=invMap.get(normKey(serial));
+    if(!inv&&imeiG) inv=invImei.get(normKey(imeiG));
+    if(!inv&&vehicle) {
+      const candidates=invVeh.get(vehicle.toLowerCase())||[];
+      if(candidates.length===1) {
+        inv=candidates[0];
+      } else if(candidates.length>1) {
+        // Prefer candidate matching same account or fleet to avoid cross-account data bleed
+        const acctKey=cuenta.toLowerCase();
+        const fleetKey=flota.toLowerCase();
+        inv = candidates.find(r=>(r.account||'').toLowerCase()===acctKey&&(r.fleet||'').toLowerCase()===fleetKey)
+           || candidates.find(r=>(r.account||'').toLowerCase()===acctKey)
+           || candidates.find(r=>r.serial_number&&r.serial_number.trim()) // prefer row with serial
+           || null; // if no match, skip — don't bleed data from wrong account
+      }
+    }
+    if(inv){
+      if(!serial) serial=c(inv.serial_number||inv.guardianSerial||'');
+      if(!imeiG)  imeiG=c(inv.imei||inv.guardianImei||'');
+      if(!imeiFFC) imeiFFC=c(inv.ffcImei||'');
+      if(!imeiGPS) imeiGPS=c(inv.gpsImei||'');
+    }
+  }
+  // Step 3: Unidades sin comunicar (last resort for serial+IMEI)
+  if(!serial) serial=_rowSerial;
+  if(!imeiG)  imeiG=_rowImeiG;
+  // Step 4: IMEI Provisional GEN3 fallback
+  if(!imeiG && serial && imeiExtraMap) {
+    const extraImei = imeiExtraMap.get(serial.toLowerCase());
+    if(extraImei) imeiG = extraImei;
+  }
+  const kG=normKey(imeiG),kFFC=normKey(imeiFFC),kGPS=normKey(imeiGPS);
+  const simG=kG?(simMap.get(kG)||''):'';
+  // FFC SIM: try simMap first; if short IMEI not in simMap, get simchip from hwAllMap
+  let simFFC=kFFC?(simMap.get(kFFC)||''):'';
+  if(!simFFC && kFFC && hwAllMap) {
+    const hwFFC=hwAllMap.get(kFFC);
+    if(hwFFC) simFFC=c(hwFFC.simchip||hwFFC.phonenumber||'');
+  }
+  // GPS SIM: IMEI → Hardware simchip (ICC) → POD fields
+  let simGPS='';
+  if(kGPS) {
+    // Step 1: try simMap (direct IMEI→ICC from sims/pod)
+    simGPS = simMap.get(kGPS)||'';
+    // Step 2: if not found, get ICC from Hardware simchip then look up in podIccMap
+    if(!simGPS && hwAllMap) {
+      const hwRow = hwAllMap.get(kGPS);
+      if(hwRow && hwRow.simchip) simGPS = normKey(hwRow.simchip);
+    }
+  }
+  // Guardian generation from serial prefix
+  const genGuardian = (() => {
+    const s = serial.toUpperCase();
+    if (s.startsWith('P1003100')) return 'GEN3';
+    if (s.startsWith('P1002260') || s.startsWith('P1001229')) return 'GEN2';
+    if (s.startsWith('P04025'))  return 'GEN1';
+    return '';
+  })();
+  // ffcModel: Hardware hardware_model (primary) → Versiones [Modelo] Howen for N1/N2 detail
+  const ffcModel = (() => {
+    if (!imeiFFC) return '';
+    const ki = normKey(imeiFFC);
+    // Step 1: Hardware List (primary)
+    let model = '';
+    if (hwListMap) { const m=hwListMap.get(ki); if(m) model=m; }
+    // Step 2: Listado Hardware fallback
+    if (!model && hwAllMap) {
+      const hwRow = hwAllMap.get(ki);
+      if (hwRow) model = c(hwRow.hardware_model || '');
+    }
+    // Step 3: if MC30, refine with Versiones for N1/N2 (skip UNKNOWN)
+    if (model.toUpperCase().includes('MC30') && ffcVersionesMap) {
+      const ver = ffcVersionesMap.get(ki);
+      if (ver && ver.toUpperCase() !== 'UNKNOWN') return ver;
+    }
+    // Step 4: Versiones fallback for non-MC30 (skip UNKNOWN)
+    if (!model && ffcVersionesMap) {
+      const ver = ffcVersionesMap.get(ki);
+      if (ver && ver.toUpperCase() !== 'UNKNOWN') return ver;
+    }
+    return model || c(r.ffcModel || r.ffc_model || '');
+  })();
+  // Monitored: look up in inventory by serial_number string
+  let monitored = '', vehicleInstallation = '';
+  // Resolve monitored + device_registration:
+  // Priority: Inventory Custom → InventoryReport (fallback)
+  const _resolveMonitored = (raw) => {
+    const m = (raw||'').trim().toLowerCase();
+    if (m==='t'||m==='yes') return 'yes';
+    if (m==='f'||m==='no')  return 'no';
+    return '';
+  };
+  if (serial) {
+    const custRow = invCustomMap && invCustomMap.get(serial.toLowerCase());
+    const invRow  = invSerialMap && invSerialMap.get(serial.toLowerCase());
+    // monitored: Custom first, InventoryReport as fallback
+    // If fleet_enabled=f in Custom → force 'no' regardless of monitored field
+    const _fleetEnabled = custRow ? (custRow.fleet_enabled||'').trim() : '';
+    if (_fleetEnabled === 'f') monitored = 'no';
+    else monitored = _resolveMonitored(custRow && custRow.monitored)
+                  || _resolveMonitored(invRow  && invRow.monitored);
+    // device_registration: Custom first, InventoryReport as fallback
+    vehicleInstallation = c((custRow && custRow.device_registration)
+                          || (invRow  && invRow.device_registration) || '');
+  }
+
+  // icc = simG (SIM card of Guardian)
+  const icc = simG;
+  // Helper: get SIM detail fields from simsIccMap by ICC value
+  const getSimFields = (icc, prefix) => {
+    if (!icc) return {};
+    const k = normKey(icc);
+    const simsRow = simsIccMap ? simsIccMap.get(k) : null;
+    const podRow  = podIccMap  ? podIccMap.get(k)  : null;
+    const row = simsRow || podRow;
+    if (!row) return {};
+    const o = {};
+    if (simsRow) {
+      o[prefix+'P1']    = c(row['Personalizado 1']||'');
+      o[prefix+'P2']    = c(row['Personalizado 2']||'');
+      o[prefix+'Fecha'] = c(row['Fecha de activación']||'');
+      o[prefix+'Datos'] = c(row['Datos Mensual']||'');
+      o[prefix+'Estado']= c(row['Estado']||'');
+    } else {
+      o[prefix+'P1']    = c(row['Name']||'');
+      o[prefix+'P2']    = c(row['Group']||'');
+      o[prefix+'Fecha'] = c(row['Activation Date (UTC)']||'');
+      o[prefix+'Datos'] = c(row["Customer's Usage Bytes"]||'');
+      o[prefix+'Estado']= c(row['Status']||'');
+    }
+    return o;
+  };
+  const gSim  = simG   ? getSimFields(simG,   'g')   : {};
+  const fSim  = simFFC ? getSimFields(simFFC,  'ffc') : {};
+  const gpSim = simGPS ? getSimFields(simGPS,  'gps') : {};
+  const ultimoContacto = c(r.guardianLastComms||'').replace('.000','').trim();
+  return {
+    cuenta,flota,vehicle,serial,imeiG,genGuardian,monitored,vehicleInstallation,
+    // Guardian SIM
+    simG,
+    gP1:    gSim.gP1    ||'', gP2:    gSim.gP2    ||'',
+    gFecha: gSim.gFecha ||'', gDatos: gSim.gDatos ||'', gEstado:gSim.gEstado||'',
+    ultimoContacto,
+    // FFC SIM
+    imeiFFC,simFFC,
+    ffcP1:    fSim.ffcP1    ||'', ffcP2:    fSim.ffcP2    ||'',
+    ffcFecha: fSim.ffcFecha ||'', ffcDatos: fSim.ffcDatos ||'', ffcEstado:fSim.ffcEstado||'',
+    ffcModel,
+    // GPS SIM
+    imeiGPS,simGPS,
+    gpsP1:    gpSim.gpsP1    ||'', gpsP2:    gpSim.gpsP2    ||'',
+    gpsFecha: gpSim.gpsFecha ||'', gpsDatos: gpSim.gpsDatos ||'', gpsEstado:gpSim.gpsEstado||'',
+    temporal:''
+  };
+}
+
+function finalize() {
+  setProgress(100,'¡Listo!');
+  const ws=exportResult.filter(r=>r.serial).length;
+  const wsim=exportResult.filter(r=>r.simG).length;
+  const wgps=exportResult.filter(r=>r.imeiGPS).length;
+  document.getElementById('sv-total').textContent=exportResult.length.toLocaleString();
+  document.getElementById('sv-serial').textContent=ws.toLocaleString();
+  document.getElementById('sv-sim').textContent=wsim.toLocaleString();
+  document.getElementById('sv-gps').textContent=wgps.toLocaleString();
+  document.getElementById('statsBox').style.display='flex';
+  document.getElementById('btnExp').style.display='inline-block';
+  document.getElementById('btnVis').style.display='inline-block';
+  document.getElementById('btnM2m').style.display='inline-block';
+  document.getElementById('btnSim').style.display='inline-block';
+  document.getElementById('btnRst').style.display='inline-block';
+  document.getElementById('btnProc').disabled=false;
+  document.getElementById('navBadge').style.display='block';
+  document.getElementById('navCount').textContent=exportResult.length.toLocaleString();
+  addLog('ok',`Completo: ${exportResult.length.toLocaleString()} registros`);
+  setTimeout(()=>setProgress(0,''),700);
+  toast(`✓ ${exportResult.length.toLocaleString()} registros procesados`,'ok');
+}
+
+function doExport() {
+  if(!exportResult.length) return;
+  const HDRS=['CUENTA','FLOTA','VEHICLEID/PATENTE','SERIAL GUARDIAN',
+    'IMEI GUARDIAN','GEN GUARDIAN','MONITOREADO','FECHA INSTALACIÓN','SIMCARD GUARDIAN',
+    'IMEI FFC LIVE','SIMCARD FFC LIVE','MODELO FFC LIVE',
+    'IMEI GPS','Sim Card GPS'];
+  const fields=['cuenta','flota','vehicle','serial','imeiG','genGuardian','monitored','vehicleInstallation','simG','imeiFFC','simFFC','ffcModel','imeiGPS','simGPS'];
+  const ct=v=>({t:'s',v:(v||''),z:'@'});
+  const ctf=(field,v)=>{
+    if(field==='monitored'){const vl=(v||'').toLowerCase();if(vl==='yes')return{t:'s',v:'Yes',z:'@'};if(vl==='no')return{t:'s',v:'No',z:'@'};return{t:'s',v:'N/A',z:'@'};}
+    return ct(v);
+  };
+  const wb=XLSX.utils.book_new();
+  const ws={};
+  const range={s:{r:0,c:0},e:{r:exportResult.length,c:HDRS.length-1}};
+  HDRS.forEach((h,c)=>{ ws[XLSX.utils.encode_cell({r:0,c})]={t:'s',v:h}; });
+  exportResult.forEach((row,ri)=>{
+    fields.forEach((f,ci)=>{ ws[XLSX.utils.encode_cell({r:ri+1,c:ci})]=ctf(f,row[f]); });
+  });
+  ws['!ref']=XLSX.utils.encode_range(range);
+  ws['!cols']=[{wch:30},{wch:30},{wch:20},{wch:22},{wch:18},{wch:10},{wch:12},{wch:22},{wch:18},{wch:22},{wch:18},{wch:18},{wch:22},{wch:20}];
+  XLSX.utils.book_append_sheet(wb,ws,'Inventario');
+  XLSX.writeFile(wb,`inventario_${new Date().toISOString().slice(0,10)}.xlsx`);
+  addLog('ok',`XLSX exportado: ${exportResult.length} registros`);
+  toast('✓ XLSX exportado correctamente','ok');
+}
+
+function resetExport() {
+  Object.keys(raw).forEach(k=>raw[k]=null);
+  exportResult=[]; logCount=0;
+  ['unidades','inventory','hardware','sims','pod','imeiExtra','ffcVersiones','invCustom','hwList'].forEach(k=>{
+    document.getElementById('fc-'+k).className='fc';
+    document.getElementById('st-'+k).className='fc-st';
+    document.getElementById('st-'+k).textContent='Sin cargar';
+    document.querySelectorAll(`#fc-${k} input`).forEach(i=>i.value='');
+  });
+  document.getElementById('statsBox').style.display='none';
+  document.getElementById('progWrap').style.display='none';
+  document.getElementById('btnExp').style.display='none';
+  document.getElementById('btnVis').style.display='none';
+  document.getElementById('btnM2m').style.display='none';
+  document.getElementById('btnSim').style.display='none';
+  document.getElementById('btnRst').style.display='none';
+  document.getElementById('btnProc').disabled=false;
+  document.getElementById('logBox').style.display='none';
+  document.getElementById('logBody').innerHTML='';
+  document.getElementById('logCnt').textContent='0';
+  document.getElementById('navBadge').style.display='none';
+}
+
+function setProgress(pct,msg) {
+  document.getElementById('progFill').style.width=pct+'%';
+  if(msg) document.getElementById('progMsg').textContent=msg;
+  document.getElementById('progPct').textContent=pct+'%';
+}
+
+function addLog(level,msg) {
+  document.getElementById('logBox').style.display='block';
+  logCount++;
+  document.getElementById('logCnt').textContent=logCount;
+  const now=new Date();
+  const ts=[now.getHours(),now.getMinutes(),now.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+  const d=document.createElement('div');
+  d.className=`ll ${level}`;
+  d.innerHTML=`<span class="ts">${ts}</span><span class="m">${esc(msg)}</span>`;
+  const b=document.getElementById('logBody');
+  b.appendChild(d); b.scrollTop=b.scrollHeight;
+}
+
+// ═══════════════════════════════════════════════
+//  ── VISOR PAGE ──
+// ═══════════════════════════════════════════════
+const VCOLS = [
+  {key:'cuenta',      label:'CUENTA'},
+  {key:'flota',       label:'FLOTA'},
+  {key:'vehicle',     label:'VEHICLEID / PATENTE'},
+  {key:'serial',      label:'SERIAL GUARDIAN'},
+  {key:'imeiG',       label:'IMEI GUARDIAN'},
+  {key:'genGuardian', label:'GEN GUARDIAN'},
+  {key:'monitored',          label:'MONITOREADO'},
+  {key:'vehicleInstallation', label:'FECHA INSTALACIÓN'},
+  {key:'simG',        label:'SIMCARD GUARDIAN'},
+  {key:'imeiFFC',     label:'IMEI FFC LIVE'},
+  {key:'simFFC',      label:'SIMCARD FFC LIVE'},
+  {key:'ffcModel',    label:'MODELO FFC LIVE'},
+  {key:'imeiGPS',     label:'IMEI GPS'},
+  {key:'simGPS',      label:'SIM CARD GPS'},
+];
+
+// Filter definitions — order matters for sidebar display
+const FILTER_DEFS = [
+  {key:'cuenta',  label:'Cuenta',                col:'cuenta',  icon:'🏢',
+   ph:'(SMLA) AGREDUCAM\n(SMLA) LINDE-CHILE\n...'},
+  {key:'flota',   label:'Flota',                 col:'flota',   icon:'🚛',
+   ph:'(SMLA) TSM-CBB\n(SMLA) LINDE-CHILE-TSM\n...'},
+  {key:'vehicle', label:'Vehículo / Patente',    col:'vehicle', icon:'🚗',
+   ph:'PSVR54\nPSVR56\nRLLW48\n...'},
+  {key:'serial',  label:'Serial Guardian',       col:'serial',  icon:'🔑',
+   ph:'P1002260-S00045575\n...'},
+  {key:'imeiG',   label:'IMEI Guardian',         col:'imeiG',   icon:'📡',
+   ph:'867929064346770\n...'},
+  {key:'simG',    label:'SIMCARD Guardian',      col:'simG',    icon:'💳',
+   ph:'8934071500007098382\n...'},
+  {key:'imeiFFC', label:'IMEI FFC Live',         col:'imeiFFC', icon:'📡',
+   ph:'867929...\n...'},
+  {key:'simFFC',  label:'SIMCARD FFC Live',      col:'simFFC',  icon:'💳',
+   ph:'8934...\n...'},
+  {key:'imeiGPS', label:'IMEI GPS',              col:'imeiGPS', icon:'🛰️',
+   ph:'353549090019505\n...'},
+  {key:'simGPS',  label:'SIM Card GPS',          col:'simGPS',  icon:'💳',
+   ph:'8934...\n...'},
+];
+
+// State
+const VF = {}; // key → Set of terms
+FILTER_DEFS.forEach(d => VF[d.key] = new Set());
+
+let vAllRows = [];
+let vFiltered = [];
+let vPage = 1;
+let vPageSize = 50;
+let vSortCol = null;
+let vSortDir = 1;
+
+const COL_ALIASES = {
+  'CUENTA':'cuenta','FLOTA':'flota',
+  'VEHICLEID/PATENTE':'vehicle','VEHICLEID / PATENTE':'vehicle',
+  'VEHICLE':'vehicle','PATENTE':'vehicle','VEHICLEID':'vehicle',
+  'SERIAL GUARDIAN':'serial',
+  'IMEI GUARDIAN':'imeiG',
+  'SIMCARD GUARDIAN':'simG',
+  'IMEI FFC LIVE':'imeiFFC',
+  'SIMCARD FFC LIVE':'simFFC',
+  'IMEI GPS':'imeiGPS',
+  'SIM CARD GPS':'simGPS',
+  '¿TEMPORAL O PERMANENTE?':'temporal',
+  'TEMPORAL O PERMANENTE':'temporal',
+  'GEN GUARDIAN':'genGuardian',
+  'MONITOREADO':'monitored',
+  'FECHA INSTALACIÓN':'vehicleInstallation','VEHICLE_INSTALLATION':'vehicleInstallation',
+  'MODELO FFC LIVE':'ffcModel',
+  'MODELO FFC':'ffcModel',
+  'GUARDIAN SIM — PERSONALIZADO 1':'gP1','GUARDIAN SIM — PERSONALIZADO 2':'gP2',
+  'GUARDIAN SIM — FECHA ACTIVACIÓN':'gFecha','GUARDIAN SIM — DATOS MENSUALES':'gDatos',
+  'GUARDIAN SIM — ESTADO':'gEstado','ÚLTIMO CONTACTO GUARDIAN':'ultimoContacto',
+  'FFC SIM — PERSONALIZADO 1':'ffcP1','FFC SIM — PERSONALIZADO 2':'ffcP2',
+  'FFC SIM — FECHA ACTIVACIÓN':'ffcFecha','FFC SIM — DATOS MENSUALES':'ffcDatos',
+  'FFC SIM — ESTADO':'ffcEstado',
+  'GPS SIM — PERSONALIZADO 1':'gpsP1','GPS SIM — PERSONALIZADO 2':'gpsP2',
+  'GPS SIM — FECHA ACTIVACIÓN':'gpsFecha','GPS SIM — DATOS MENSUALES':'gpsDatos',
+  'GPS SIM — ESTADO':'gpsEstado',
+};
+
+// Build sidebar filter groups
+function buildSidebar() {
+  const container = document.getElementById('filterGroups');
+  if (!container) return;
+  container.innerHTML = FILTER_DEFS.map(d => `
+    <div class="fg">
+      <div class="fg-label">${d.icon} ${d.label}</div>
+      <textarea class="filter-ta" id="fta-${d.key}"
+        placeholder="${d.ph}"
+        oninput="onVFilterInput('${d.key}', this.value)"
+        rows="2"
+      ></textarea>
+      <div class="fg-hint">Pega varios valores, uno por línea o separados por comas</div>
+    </div>
+  `).join('');
+}
+
+// Parse textarea value → set of lowercase trimmed terms
+function parseTerms(val) {
+  // Split only on newlines and commas — NOT spaces.
+  // This allows multi-word terms like "(SMLA) SQM" or "LINDE-CHILE-TSM-L" to work as a single phrase.
+  return new Set(
+    val.split(/[\n,]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(s => s.length > 0)
+  );
+}
+
+function onVFilterInput(key, val) {
+  VF[key] = parseTerms(val);
+  vPage = 1;
+  applyVFilters();
+}
+
+function clearFilters() {
+  FILTER_DEFS.forEach(d => {
+    VF[d.key] = new Set();
+    const ta = document.getElementById('fta-'+d.key);
+    if (ta) ta.value = '';
+  });
+  vPage = 1;
+  applyVFilters();
+}
+
+function applyVFilters() {
+  const activeFilters = FILTER_DEFS.filter(d => VF[d.key].size > 0);
+
+  vFiltered = vAllRows.filter(row => {
+    for (const d of activeFilters) {
+      const cell = (row[d.col] || '').toLowerCase();
+      // Row must match AT LEAST ONE term in this field (OR within field)
+      const match = [...VF[d.key]].some(t => cell.includes(t));
+      if (!match) return false;
+    }
+    return true; // AND across fields
+  });
+
+  if (vSortCol !== null) {
+    const colKey = VCOLS[vSortCol].key;
+    vFiltered.sort((a,b) => {
+      const av=(a[colKey]||'').toLowerCase(), bv=(b[colKey]||'').toLowerCase();
+      return av<bv?-vSortDir:av>bv?vSortDir:0;
+    });
+  }
+
+  renderVTable();
+  updateVInfo();
+}
+
+function updateVInfo() {
+  const el = document.getElementById('resultInfo');
+  if (!el) return;
+  const t = vAllRows.length, s = vFiltered.length;
+  el.innerHTML = s === t
+    ? `Mostrando <b>${t.toLocaleString()}</b> registros`
+    : `<b>${s.toLocaleString()}</b> de ${t.toLocaleString()} registros`;
+}
+
+function renderVTable() {
+  const panel = document.getElementById('tablePanel');
+  if (!vFiltered.length) {
+    panel.innerHTML = `<div class="empty-state">
+      <div class="es-icon">🔍</div>
+      <div class="es-title">${vAllRows.length ? 'Sin resultados para estos filtros' : 'Sin datos cargados'}</div>
+      <div class="es-sub">${vAllRows.length ? 'Ajusta los filtros' : 'Carga un archivo XLSX'}</div>
+    </div>`; return;
+  }
+
+  const start = (vPage-1)*vPageSize;
+  const end   = Math.min(start+vPageSize, vFiltered.length);
+  const page  = vFiltered.slice(start, end);
+
+  // Collect all active terms per column key for highlight
+  const termsByCol = {};
+  FILTER_DEFS.forEach(d => { termsByCol[d.col] = [...VF[d.key]]; });
+
+  const hlCell = (val, colKey) => {
+    const v = String(val||'');
+    // Special rendering — checked BEFORE the generic empty guard
+    if (colKey === 'monitored') {
+      if (v.toLowerCase() === 'yes') return `<span style="color:var(--green);font-weight:600">✓ Yes</span>`;
+      if (v.toLowerCase() === 'no')  return `<span style="color:var(--red);font-weight:600">✗ No</span>`;
+      return `<span style="color:var(--t3);font-style:italic">N/A</span>`;
+    }
+    if (!v) return `<span class="empty">—</span>`;
+    if (colKey === 'genGuardian' && v) {
+      const cls = v==='GEN1'?'gen1':v==='GEN2'?'gen2':v==='GEN3'?'gen3':'';
+      return `<span class="${cls}" style="font-weight:600">${esc(v)}</span>`;
+    }
+    const terms = termsByCol[colKey] || [];
+    for (const t of terms) {
+      const idx = v.toLowerCase().indexOf(t);
+      if (idx >= 0) {
+        return esc(v.slice(0,idx))
+          + `<mark class="hl">${esc(v.slice(idx,idx+t.length))}</mark>`
+          + esc(v.slice(idx+t.length));
+      }
+    }
+    return esc(v);
+  };
+
+  const thSort = (label, ci) => {
+    const cls = vSortCol===ci ? (vSortDir===1?'asc':'desc') : '';
+    return `<th class="${cls}" onclick="vSort(${ci})">${label}<span class="si"></span></th>`;
+  };
+
+  const optSz = [25,50,100,200].map(n=>`<option value="${n}"${n===vPageSize?' selected':''}>${n}/pág</option>`).join('');
+
+  panel.innerHTML = `
+    <div class="tbl-header">
+      <button class="btn-green" style="font-size:10px;padding:5px 12px;border-radius:5px" onclick="exportVFiltered()">⬇ Exportar (${vFiltered.length.toLocaleString()})</button>
+      <select class="pg-size" onchange="vPgSize(this.value)" style="margin-left:8px">${optSz}</select>
+      <span class="tbl-meta" style="margin-left:auto">Filas <b>${start+1}–${end}</b> de <b>${vFiltered.length.toLocaleString()}</b></span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th style="width:32px;color:var(--t4)">#</th>
+          ${VCOLS.map((c,i)=>thSort(c.label,i)).join('')}
+        </tr></thead>
+        <tbody>
+          ${page.map((row,li)=>{
+            const gi=start+li;
+            return `<tr>
+              <td class="rn">${gi+1}</td>
+              ${VCOLS.map(c=>`<td>${hlCell(row[c.key],c.key)}</td>`).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${buildVPager(vFiltered.length)}`;
+}
+
+function buildVPager(total) {
+  const pages = Math.ceil(total/vPageSize);
+  if (pages<=1) return '';
+  const MAX=7;
+  let nums=[];
+  if (pages<=MAX) { nums=Array.from({length:pages},(_,i)=>i+1); }
+  else {
+    const l=Math.max(1,vPage-2), r=Math.min(pages,vPage+2);
+    if(l>1) nums.push(1,'…');
+    for(let i=l;i<=r;i++) nums.push(i);
+    if(r<pages) nums.push('…',pages);
+  }
+  const btn=(lbl,pg,dis,on)=>
+    `<button class="pg${on?' on':''}" onclick="vGoPage(${pg})" ${dis?'disabled':''}>${lbl}</button>`;
+  return `<div class="pager">
+    ${btn('«',1,vPage===1,false)}
+    ${btn('‹',vPage-1,vPage===1,false)}
+    ${nums.map(p=>p==='…'?`<span class="pg-sep">…</span>`:btn(p,p,false,p===vPage)).join('')}
+    ${btn('›',vPage+1,vPage===pages,false)}
+    ${btn('»',pages,vPage===pages,false)}
+    <span class="pager-info">Pág ${vPage}/${pages}</span>
+  </div>`;
+}
+
+function vGoPage(p) {
+  const pages=Math.ceil(vFiltered.length/vPageSize);
+  vPage=Math.max(1,Math.min(p,pages));
+  renderVTable();
+  document.getElementById('tablePanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function vPgSize(v) { vPageSize=parseInt(v); vPage=1; renderVTable(); }
+function vSort(ci) {
+  if(vSortCol===ci) vSortDir=-vSortDir; else {vSortCol=ci;vSortDir=1;}
+  applyVFilters();
+}
+
+// File loading for visor
+function vDragOver(e) { e.preventDefault(); document.getElementById('visorDrop').classList.add('drag'); }
+function vDragLeave(e) { document.getElementById('visorDrop').classList.remove('drag'); }
+function vDrop(e) { e.preventDefault(); document.getElementById('visorDrop').classList.remove('drag'); if(e.dataTransfer.files[0]) vReadFile(e.dataTransfer.files[0]); }
+function vFileChange(inp) { if(inp.files[0]) vReadFile(inp.files[0]); }
+
+function vReadFile(file) {
+  const fr=new FileReader();
+  fr.onload=e=>{
+    try {
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array',raw:false});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      vParseRows(raw,file.name);
+    } catch(err) { toast('Error al leer: '+err.message,'err'); }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+function vParseRows(raw, fname) {
+  if(raw.length<2){toast('Archivo vacío','err');return;}
+  let hi=0;
+  for(let i=0;i<Math.min(5,raw.length);i++){
+    const hits=raw[i].filter(c=>COL_ALIASES[String(c).trim().toUpperCase()]);
+    if(hits.length>=3){hi=i;break;}
+  }
+  const hdrs=raw[hi].map(h=>{
+    const u=String(h).trim().toUpperCase();
+    return COL_ALIASES[u]||COL_ALIASES[u.replace(/[¿?]/g,'')]||null;
+  });
+  vAllRows=[];
+  for(let i=hi+1;i<raw.length;i++){
+    const r=raw[i];
+    if(r.every(v=>v===''||v===null||v===undefined)) continue;
+    const obj={}; VCOLS.forEach(c=>obj[c.key]='');
+    hdrs.forEach((key,idx)=>{ if(key) obj[key]=String(r[idx]??'').trim(); });
+    vAllRows.push(obj);
+  }
+  if(!vAllRows.length){toast('No se encontraron datos','err');return;}
+  clearFilters();
+  document.getElementById('visorDrop').style.display='none';
+  document.getElementById('visorLayout').style.display='grid';
+  document.getElementById('navBadge').style.display='block';
+  document.getElementById('navCount').textContent=vAllRows.length.toLocaleString();
+  vPage=1; vSortCol=null;
+  applyVFilters();
+  toast(`✓ ${vAllRows.length.toLocaleString()} registros — ${fname}`,'ok');
+}
+
+function loadVisorFromMemory(rows) {
+  vAllRows = rows.map(r => ({...r})); // clone
+  clearFilters();
+  document.getElementById('visorDrop').style.display='none';
+  document.getElementById('visorLayout').style.display='grid';
+  vPage=1; vSortCol=null;
+  applyVFilters();
+}
+
+
+function exportVFiltered() {
+  if (!vFiltered.length) return;
+  const HDRS = ['CUENTA','FLOTA','VEHICLEID/PATENTE','SERIAL GUARDIAN',
+    'IMEI GUARDIAN','GEN GUARDIAN','MONITOREADO','FECHA INSTALACIÓN','SIMCARD GUARDIAN',
+    'IMEI FFC LIVE','SIMCARD FFC LIVE','MODELO FFC LIVE',
+    'IMEI GPS','Sim Card GPS'];
+  const fields = ['cuenta','flota','vehicle','serial','imeiG','genGuardian','monitored','vehicleInstallation','simG',
+                  'imeiFFC','simFFC','ffcModel','imeiGPS','simGPS'];
+  const ct = v => ({ t:'s', v:(v||''), z:'@' });
+  // Field-aware cell writer: applies same display rules as the table
+  const ctf = (field, v) => {
+    if (field === 'monitored') {
+      const vl = (v||'').toLowerCase();
+      if (vl === 'yes') return { t:'s', v:'Yes', z:'@' };
+      if (vl === 'no')  return { t:'s', v:'No',  z:'@' };
+      return { t:'s', v:'N/A', z:'@' };
+    }
+    return ct(v);
+  };
+  const wb = XLSX.utils.book_new();
+  const ws = {};
+  const range = { s:{r:0,c:0}, e:{r:vFiltered.length, c:HDRS.length-1} };
+  HDRS.forEach((h,c) => { ws[XLSX.utils.encode_cell({r:0,c})] = {t:'s', v:h}; });
+  vFiltered.forEach((row,ri) => {
+    fields.forEach((f,ci) => { ws[XLSX.utils.encode_cell({r:ri+1,c:ci})] = ctf(f,row[f]); });
+  });
+  ws['!ref'] = XLSX.utils.encode_range(range);
+  ws['!cols'] = [{wch:30},{wch:30},{wch:20},{wch:22},{wch:18},{wch:22},
+                 {wch:18},{wch:22},{wch:18},{wch:22},{wch:20}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Filtrado');
+  const suffix = vFiltered.length < vAllRows.length ? `_filtrado_${vFiltered.length}` : '_completo';
+  XLSX.writeFile(wb, `inventario${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`\u2713 Exportados ${vFiltered.length.toLocaleString()} registros`, 'ok');
+}
+
+// ═══════════════════════════════════════════════
+//  ── GESTIÓN DE SIM PAGE (duplicate of Visor) ──
+// ═══════════════════════════════════════════════
+const SCOLS = [
+  // ── Identidad ──
+  {key:'cuenta',      label:'CUENTA'},
+  {key:'flota',       label:'FLOTA'},
+  {key:'vehicle',     label:'VEHICLEID / PATENTE'},
+  {key:'serial',      label:'SERIAL GUARDIAN'},
+  {key:'imeiG',       label:'IMEI GUARDIAN'},
+  {key:'genGuardian', label:'GEN GUARDIAN'},
+  {key:'monitored',   label:'MONITOREADO'},
+  // ── SIM Guardian ──
+  {key:'simG',        label:'SIMCARD GUARDIAN'},
+  {key:'gP1',         label:'GUARDIAN SIM — PERSONALIZADO 1'},
+  {key:'gP2',         label:'GUARDIAN SIM — PERSONALIZADO 2'},
+  {key:'gFecha',      label:'GUARDIAN SIM — FECHA ACTIVACIÓN'},
+  {key:'gReglaEntel', label:'GUARDIAN SIM — CUMPLE REGLA ENTEL'},
+  {key:'gDatos',      label:'GUARDIAN SIM — DATOS MENSUALES'},
+  {key:'gEstado',     label:'GUARDIAN SIM — ESTADO'},
+  {key:'ultimoContacto', label:'ÚLTIMO CONTACTO GUARDIAN'},
+  // ── SIM FFC Live ──
+  {key:'imeiFFC',     label:'IMEI FFC LIVE'},
+  {key:'simFFC',      label:'SIMCARD FFC LIVE'},
+  {key:'ffcP1',       label:'FFC SIM — PERSONALIZADO 1'},
+  {key:'ffcP2',       label:'FFC SIM — PERSONALIZADO 2'},
+  {key:'ffcFecha',    label:'FFC SIM — FECHA ACTIVACIÓN'},
+  {key:'ffcReglaEntel',label:'FFC SIM — CUMPLE REGLA ENTEL'},
+  {key:'ffcDatos',    label:'FFC SIM — DATOS MENSUALES'},
+  {key:'ffcEstado',   label:'FFC SIM — ESTADO'},
+  {key:'ffcModel',    label:'MODELO FFC LIVE'},
+  // ── SIM GPS ──
+  {key:'imeiGPS',     label:'IMEI GPS'},
+  {key:'simGPS',      label:'SIM CARD GPS'},
+  {key:'gpsP1',       label:'GPS SIM — PERSONALIZADO 1'},
+  {key:'gpsP2',       label:'GPS SIM — PERSONALIZADO 2'},
+  {key:'gpsFecha',    label:'GPS SIM — FECHA ACTIVACIÓN'},
+  {key:'gpsDatos',    label:'GPS SIM — DATOS MENSUALES'},
+  {key:'gpsEstado',   label:'GPS SIM — ESTADO'},
+];
+
+// Filter definitions — order matters for sidebar display
+const SFILTER_DEFS = [
+  {key:'vehicle', label:'Vehículo / Patente',   col:'vehicle', icon:'🚗',
+   ph:'PSVR54\nPSVR56\nRLLW48\n...'},
+  {key:'serial',  label:'Serial Guardian',       col:'serial',  icon:'🔑',
+   ph:'P1002260-S00045575\n...'},
+  {key:'imeiG',   label:'IMEI Guardian',         col:'imeiG',   icon:'📡',
+   ph:'867929064346770\n...'},
+  {key:'simG',    label:'SIMCARD Guardian',      col:'simG',    icon:'💳',
+   ph:'8934071500007098382\n...'},
+  {key:'imeiFFC', label:'IMEI FFC Live',         col:'imeiFFC', icon:'📡',
+   ph:'867929...\n...'},
+  {key:'simFFC',  label:'SIMCARD FFC Live',      col:'simFFC',  icon:'💳',
+   ph:'8934...\n...'},
+  {key:'imeiGPS', label:'IMEI GPS',              col:'imeiGPS', icon:'🛰️',
+   ph:'353549090019505\n...'},
+  {key:'simGPS',  label:'SIM Card GPS',          col:'simGPS',  icon:'💳',
+   ph:'8934...\n...'},
+  {key:'cuenta',  label:'Cuenta',                col:'cuenta',  icon:'🏢',
+   ph:'(SMLA) AGREDUCAM\n...'},
+  {key:'flota',   label:'Flota',                 col:'flota',   icon:'🚛',
+   ph:'(SMLA) TSM-CBB\n...'},
+];
+
+// State
+const SF = {}; // key → Set of terms
+SFILTER_DEFS.forEach(d => SF[d.key] = new Set());
+
+let sAllRows = [];
+let sFiltered = [];
+let sPage = 1;
+let sPageSize = 50;
+let sSortCol = null;
+let sSortDir = 1;
+
+const SCOL_ALIASES = {
+  'CUENTA':'cuenta','FLOTA':'flota',
+  'VEHICLEID/PATENTE':'vehicle','VEHICLEID / PATENTE':'vehicle',
+  'VEHICLE':'vehicle','PATENTE':'vehicle','VEHICLEID':'vehicle',
+  'SERIAL GUARDIAN':'serial',
+  'IMEI GUARDIAN':'imeiG',
+  'SIMCARD GUARDIAN':'simG',
+  'IMEI FFC LIVE':'imeiFFC',
+  'SIMCARD FFC LIVE':'simFFC',
+  'IMEI GPS':'imeiGPS',
+  'SIM CARD GPS':'simGPS',
+  '¿TEMPORAL O PERMANENTE?':'temporal',
+  'TEMPORAL O PERMANENTE':'temporal',
+  'GEN GUARDIAN':'genGuardian',
+  'MONITOREADO':'monitored',
+  'MODELO FFC LIVE':'ffcModel',
+  'MODELO FFC':'ffcModel',
+  'GUARDIAN SIM — PERSONALIZADO 1':'gP1','GUARDIAN SIM — PERSONALIZADO 2':'gP2',
+  'GUARDIAN SIM — FECHA ACTIVACIÓN':'gFecha','GUARDIAN SIM — DATOS MENSUALES':'gDatos',
+  'GUARDIAN SIM — ESTADO':'gEstado','ÚLTIMO CONTACTO GUARDIAN':'ultimoContacto',
+  'FFC SIM — PERSONALIZADO 1':'ffcP1','FFC SIM — PERSONALIZADO 2':'ffcP2',
+  'FFC SIM — FECHA ACTIVACIÓN':'ffcFecha','FFC SIM — DATOS MENSUALES':'ffcDatos',
+  'FFC SIM — ESTADO':'ffcEstado',
+  'GPS SIM — PERSONALIZADO 1':'gpsP1','GPS SIM — PERSONALIZADO 2':'gpsP2',
+  'GPS SIM — FECHA ACTIVACIÓN':'gpsFecha','GPS SIM — DATOS MENSUALES':'gpsDatos',
+  'GPS SIM — ESTADO':'gpsEstado',
+};
+
+// Build sidebar filter groups
+function buildSSidebar() {
+  const container = document.getElementById('simFilterGroups');
+  if (!container) return;
+  container.innerHTML = SFILTER_DEFS.map(d => `
+    <div class="fg">
+      <div class="fg-label">${d.icon} ${d.label}</div>
+      <textarea class="filter-ta" id="sfta-${d.key}"
+        placeholder="${d.ph}"
+        oninput="onSFilterInput('${d.key}', this.value)"
+        rows="2"
+      ></textarea>
+      <div class="fg-hint">Pega varios valores, uno por línea o separados por comas</div>
+    </div>
+  `).join('');
+}
+
+// Parse textarea value → set of lowercase trimmed terms
+function parseTerms(val) {
+  return new Set(
+    val.split(/[\n,\s]+/)
+      .map(s => s.trim().toLowerCase())
+      .filter(s => s.length > 0)
+  );
+}
+
+function onSFilterInput(key, val) {
+  SF[key] = parseTerms(val);
+  sPage = 1;
+  applySFilters();
+}
+
+function clearSFilters() {
+  SFILTER_DEFS.forEach(d => {
+    SF[d.key] = new Set();
+    const ta = document.getElementById('sfta-'+d.key);
+    if (ta) ta.value = '';
+  });
+  sPage = 1;
+  applySFilters();
+}
+
+function applySFilters() {
+  const activeFilters = SFILTER_DEFS.filter(d => SF[d.key].size > 0);
+
+  sFiltered = sAllRows.filter(row => {
+    for (const d of activeFilters) {
+      const cell = (row[d.col] || '').toLowerCase();
+      // Row must match AT LEAST ONE term in this field (OR within field)
+      const match = [...SF[d.key]].some(t => cell.includes(t));
+      if (!match) return false;
+    }
+    return true; // AND across fields
+  });
+
+  if (sSortCol !== null) {
+    const colKey = SCOLS[sSortCol].key;
+    sFiltered.sort((a,b) => {
+      const av=(a[colKey]||'').toLowerCase(), bv=(b[colKey]||'').toLowerCase();
+      return av<bv?-sSortDir:av>bv?sSortDir:0;
+    });
+  }
+
+  renderSTable();
+  updateSInfo();
+}
+
+function updateSInfo() {
+  const el = document.getElementById('simResultInfo');
+  if (!el) return;
+  const t = sAllRows.length, s = sFiltered.length;
+  el.innerHTML = s === t
+    ? `Mostrando <b>${t.toLocaleString()}</b> registros`
+    : `<b>${s.toLocaleString()}</b> de ${t.toLocaleString()} registros`;
+}
+
+// Calculate Regla Entel: >= 6 months from activation date to today → 'SI' else 'NO'
+function calcReglaEntel(fechaStr) {
+  if (!fechaStr || !fechaStr.trim()) return '';
+  let d;
+  if (/^\d{4}-\d{2}-\d{2}/.test(fechaStr)) d = new Date(fechaStr.slice(0,10));
+  else if (/^\d{2}\/\d{2}\/\d{4}/.test(fechaStr)) {
+    const [dd,mm,yyyy] = fechaStr.split('/'); d = new Date(`${yyyy}-${mm}-${dd}`);
+  } else return '';
+  if (isNaN(d)) return '';
+  return (Date.now() - d) / (1000*60*60*24*30.4375) >= 6 ? 'SI' : 'NO';
+}
+
+function renderSTable() {
+  const panel = document.getElementById('simTablePanel');
+  if (!sFiltered.length) {
+    panel.innerHTML = `<div class="empty-state">
+      <div class="es-icon">🔍</div>
+      <div class="es-title">${sAllRows.length ? 'Sin resultados para estos filtros' : 'Sin datos cargados'}</div>
+      <div class="es-sub">${sAllRows.length ? 'Ajusta los filtros' : 'Carga un archivo XLSX'}</div>
+    </div>`; return;
+  }
+
+  const start = (sPage-1)*sPageSize;
+  const end   = Math.min(start+sPageSize, sFiltered.length);
+  const page  = sFiltered.slice(start, end);
+
+  // Collect all active terms per column key for highlight
+  const termsByCol = {};
+  SFILTER_DEFS.forEach(d => { termsByCol[d.col] = [...SF[d.key]]; });
+
+  const hlCell = (val, colKey, row) => {
+    const v = String(val||'');
+    // Special rendering — checked BEFORE the generic empty guard
+    if (colKey === 'monitored') {
+      if (v.toLowerCase() === 'yes') return `<span style="color:var(--green);font-weight:600">✓ Yes</span>`;
+      if (v.toLowerCase() === 'no')  return `<span style="color:var(--red);font-weight:600">✗ No</span>`;
+      return `<span style="color:var(--t3);font-style:italic">N/A</span>`;
+    }
+    if (colKey==='gReglaEntel') {
+      const computed = calcReglaEntel(row ? row.gFecha : v);
+      if (!computed) return `<span class="empty">—</span>`;
+      return computed==='SI' ? `<span style="color:var(--green);font-weight:600">✓ SI</span>`
+                             : `<span style="color:var(--amber);font-weight:600">✗ NO</span>`;
+    }
+    if (colKey==='ffcReglaEntel') {
+      const computed = calcReglaEntel(row ? row.ffcFecha : v);
+      if (!computed) return `<span class="empty">—</span>`;
+      return computed==='SI' ? `<span style="color:var(--green);font-weight:600">✓ SI</span>`
+                             : `<span style="color:var(--amber);font-weight:600">✗ NO</span>`;
+    }
+    if (colKey==='gReglaEntel') {
+      const comp=calcReglaEntel(row&&row.gFecha||'');
+      if (!comp) return `<span class="empty">—</span>`;
+      return comp==='SI'?`<span style="color:var(--green);font-weight:600">✓ SI</span>`
+                        :`<span style="color:var(--amber);font-weight:600">✗ NO</span>`;
+    }
+    if (colKey==='ffcReglaEntel') {
+      const comp=calcReglaEntel(row&&row.ffcFecha||'');
+      if (!comp) return `<span class="empty">—</span>`;
+      return comp==='SI'?`<span style="color:var(--green);font-weight:600">✓ SI</span>`
+                        :`<span style="color:var(--amber);font-weight:600">✗ NO</span>`;
+    }
+    if (colKey==='gEstado'||colKey==='ffcEstado'||colKey==='gpsEstado') {
+      if (!v) return `<span class="empty">—</span>`;
+      const vl=v.toLowerCase();
+      if (vl==='activa') return `<span style="color:var(--green);font-weight:600">● ${esc(v)}</span>`;
+      if (vl==='hibernada'||vl==='en hibernación') return `<span style="color:var(--amber);font-weight:600">● ${esc(v)}</span>`;
+      if (vl.includes('baja')) return `<span style="color:var(--red);font-weight:600">● ${esc(v)}</span>`;
+      if (vl==='lista para usar') return `<span style="color:var(--purple);font-weight:600">● ${esc(v)}</span>`;
+      return `<span style="color:var(--t2)">${esc(v)}</span>`;
+    }
+    if (!v) return `<span class="empty">—</span>`;
+    if (colKey === 'genGuardian' && v) {
+      const cls = v==='GEN1'?'gen1':v==='GEN2'?'gen2':v==='GEN3'?'gen3':'';
+      return `<span class="${cls}" style="font-weight:600">${esc(v)}</span>`;
+    }
+    const terms = termsByCol[colKey] || [];
+    for (const t of terms) {
+      const idx = v.toLowerCase().indexOf(t);
+      if (idx >= 0) {
+        return esc(v.slice(0,idx))
+          + `<mark class="hl">${esc(v.slice(idx,idx+t.length))}</mark>`
+          + esc(v.slice(idx+t.length));
+      }
+    }
+    return esc(v);
+  };
+
+  const thSort = (label, ci) => {
+    const cls = sSortCol===ci ? (sSortDir===1?'asc':'desc') : '';
+    return `<th class="${cls}" onclick="sSort(${ci})">${label}<span class="si"></span></th>`;
+  };
+
+  const optSz = [25,50,100,200].map(n=>`<option value="${n}"${n===sPageSize?' selected':''}>${n}/pág</option>`).join('');
+
+  panel.innerHTML = `
+    <div class="tbl-header">
+      <button class="btn-green" style="font-size:10px;padding:5px 12px;border-radius:5px" onclick="exportSFiltered()">⬇ Exportar (${sFiltered.length.toLocaleString()})</button>
+      <select class="pg-size" onchange="sPgSize(this.value)" style="margin-left:8px">${optSz}</select>
+      <span class="tbl-meta" style="margin-left:auto">Filas <b>${start+1}–${end}</b> de <b>${sFiltered.length.toLocaleString()}</b></span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th style="width:32px;color:var(--t4)">#</th>
+          ${SCOLS.map((c,i)=>thSort(c.label,i)).join('')}
+        </tr></thead>
+        <tbody>
+          ${page.map((row,li)=>{
+            const gi=start+li;
+            return `<tr>
+              <td class="rn">${gi+1}</td>
+              ${SCOLS.map(c=>`<td>${hlCell(row[c.key],c.key,row)}</td>`).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${buildSPager(sFiltered.length)}`;
+}
+
+function buildSPager(total) {
+  const pages = Math.ceil(total/sPageSize);
+  if (pages<=1) return '';
+  const MAX=7;
+  let nums=[];
+  if (pages<=MAX) { nums=Array.from({length:pages},(_,i)=>i+1); }
+  else {
+    const l=Math.max(1,sPage-2), r=Math.min(pages,sPage+2);
+    if(l>1) nums.push(1,'…');
+    for(let i=l;i<=r;i++) nums.push(i);
+    if(r<pages) nums.push('…',pages);
+  }
+  const btn=(lbl,pg,dis,on)=>
+    `<button class="pg${on?' on':''}" onclick="sGoPage(${pg})" ${dis?'disabled':''}>${lbl}</button>`;
+  return `<div class="pager">
+    ${btn('«',1,sPage===1,false)}
+    ${btn('‹',sPage-1,sPage===1,false)}
+    ${nums.map(p=>p==='…'?`<span class="pg-sep">…</span>`:btn(p,p,false,p===sPage)).join('')}
+    ${btn('›',sPage+1,sPage===pages,false)}
+    ${btn('»',pages,sPage===pages,false)}
+    <span class="pager-info">Pág ${vPage}/${pages}</span>
+  </div>`;
+}
+
+function sGoPage(p) {
+  const pages=Math.ceil(sFiltered.length/sPageSize);
+  sPage=Math.max(1,Math.min(p,pages));
+  renderSTable();
+  document.getElementById('simTablePanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function sPgSize(v) { sPageSize=parseInt(v); sPage=1; renderSTable(); }
+function sSort(ci) {
+  if(sSortCol===ci) sSortDir=-sSortDir; else {sSortCol=ci;sSortDir=1;}
+  applySFilters();
+}
+
+// File loading for visor
+function sDragOver(e) { e.preventDefault(); document.getElementById('simDrop').classList.add('drag'); }
+function sDragLeave(e) { document.getElementById('simDrop').classList.remove('drag'); }
+function sDrop(e) { e.preventDefault(); document.getElementById('simDrop').classList.remove('drag'); if(e.dataTransfer.files[0]) sReadFile(e.dataTransfer.files[0]); }
+function sFileChange(inp) { if(inp.files[0]) sReadFile(inp.files[0]); }
+
+function sReadFile(file) {
+  const fr=new FileReader();
+  fr.onload=e=>{
+    try {
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array',raw:false});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      sParseRows(raw,file.name);
+    } catch(err) { toast('Error al leer: '+err.message,'err'); }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+function sParseRows(raw, fname) {
+  if(raw.length<2){toast('Archivo vacío','err');return;}
+  let hi=0;
+  for(let i=0;i<Math.min(5,raw.length);i++){
+    const hits=raw[i].filter(c=>SCOL_ALIASES[String(c).trim().toUpperCase()]);
+    if(hits.length>=3){hi=i;break;}
+  }
+  const hdrs=raw[hi].map(h=>{
+    const u=String(h).trim().toUpperCase();
+    return SCOL_ALIASES[u]||SCOL_ALIASES[u.replace(/[¿?]/g,'')]||null;
+  });
+  sAllRows=[];
+  for(let i=hi+1;i<raw.length;i++){
+    const r=raw[i];
+    if(r.every(v=>v===''||v===null||v===undefined)) continue;
+    const obj={}; SCOLS.forEach(c=>obj[c.key]='');
+    hdrs.forEach((key,idx)=>{ if(key) obj[key]=String(r[idx]??'').trim(); });
+    sAllRows.push(obj);
+  }
+  if(!sAllRows.length){toast('No se encontraron datos','err');return;}
+  clearSFilters();
+  document.getElementById('simDrop').style.display='none';
+  document.getElementById('simLayout').style.display='grid';
+  document.getElementById('navBadge').style.display='block';
+  document.getElementById('navCount').textContent=sAllRows.length.toLocaleString();
+  sPage=1; sSortCol=null;
+  applySFilters();
+  toast(`✓ ${sAllRows.length.toLocaleString()} registros — ${fname}`,'ok');
+}
+
+// Build Gestión de SIM rows directly from Inventory Custom
+// Uses ALL custom rows (including fleet_enabled=f) — no serial filter
+function buildSimRows() {
+  if (!raw.invCustom) return;
+  // Build simsIccMap if needed (same as in startProcess)
+  const _simsIccMap = new Map();
+  const normK = v => (v||'').replace(/\D/g,'');
+  if (raw.sims) raw.sims.forEach(r => { const k=normK(r['ICC']||''); if(k&&k.length>=10) _simsIccMap.set(k,r); });
+  // POD keyed by ICC (Subscriber ID) for GPS SIM detail fields
+  const _podIccMap = new Map();
+  if (raw.pod) raw.pod.forEach(r => { const k=normK(r["Subscriber ID #"]||''); if(k&&k.length>=10) _podIccMap.set(k,r); });
+  // FFC Versiones map: IMEI→Modelo Howen
+  const _ffcVerMap = new Map();
+  if (raw.ffcVersiones) raw.ffcVersiones.forEach(r => { const k=normK(r['Imei']||''); if(k) _ffcVerMap.set(k,(r['[Modelo] Howen']||'').trim()); });
+  // Hardware List map (primary model source)
+  const _hwListLocalMap = new Map();
+  if (raw.hwList) raw.hwList.forEach(r => { const k=normK(r['imei']||r['IMEI']||''); if(k&&k.length>=10) _hwListLocalMap.set(k,(r['name']||r['Name']||'').trim()); });
+  // Listado Hardware IMEI map (fallback)
+  const _hwImeiMap = new Map();
+  if (raw.hardware) raw.hardware.forEach(r => { const k=normK(r.imei||''); if(k) _hwImeiMap.set(k,r); });
+  // Unidades serial→row map to get ffcImei/gpsImei for Custom rows
+  const _uSerialMap = new Map();
+  if (raw.unidades) raw.unidades.forEach(r => { const k=(r.guardianSerial||'').trim().toLowerCase(); if(k) _uSerialMap.set(k,r); });
+  // simMap: IMEI→ICC
+  const _simMap = new Map();
+  if (raw.sims) raw.sims.forEach(r => { const i=normK(r['IMEI']||''),cc=normK(r['ICC']||''); if(i&&cc) _simMap.set(i,cc); });
+  if (raw.pod)  raw.pod.forEach(r  => { const i=normK(r['IMEI']||''),cc=normK(r["Subscriber ID #"]||r['MSISDN']||''); if(i&&cc&&!_simMap.has(i)) _simMap.set(i,cc); });
+  const getSimFields = (icc, prefix) => {
+    if (!icc) return {};
+    const k = normK(icc);
+    const simsRow = _simsIccMap.get(k);
+    const podRow  = _podIccMap  ? _podIccMap.get(k) : null;
+    const row = simsRow || podRow;
+    if (!row) return {};
+    const o = {};
+    if (simsRow) {
+      o[prefix+'P1']    = (row['Personalizado 1']||'').trim();
+      o[prefix+'P2']    = (row['Personalizado 2']||'').trim();
+      o[prefix+'Fecha'] = (row['Fecha de activación']||'').trim();
+      o[prefix+'Datos'] = (row['Datos Mensual']||'').trim();
+      o[prefix+'Estado']= (row['Estado']||'').trim();
+    } else {
+      o[prefix+'P1']    = (row['Name']||'').trim();
+      o[prefix+'P2']    = (row['Group']||'').trim();
+      o[prefix+'Fecha'] = (row['Activation Date (UTC)']||'').trim();
+      o[prefix+'Datos'] = (row["Customer's Usage Bytes"]||'').trim();
+      o[prefix+'Estado']= (row['Status']||'').trim();
+    }
+    return o;
+  };
+  const ct = v => (v||'').trim();
+  const buildRow = r => {
+    // Detect source: Custom rows have 'account', Unidades have 'companyName'
+    const isCustom = 'account' in r;
+    const serial   = ct(r.serial_number||r.guardianSerial||'');
+    const imeiG    = ct(r.imei||r.guardianImei||'');
+    // Get ffcImei/gpsImei from Unidades if not in current row (Custom rows lack this)
+    const _uRow    = (serial && _uSerialMap) ? _uSerialMap.get(serial.toLowerCase()) : null;
+    const imeiFFC  = ct(r.ffcImei||(_uRow&&_uRow.ffcImei)||'');
+    const imeiGPS  = ct(r.gpsImei||(_uRow&&_uRow.gpsImei)||'');
+    const cuenta   = ct(r.account||r.companyName||'');
+    const flota    = ct(r.fleet||r.fleetName||'');
+    const vehicle  = ct(r.vehicle||r.vehicleName||r.vehiclePlate||'');
+    // monitored: Custom uses fleet_enabled, Unidades has no monitored field
+    let monitored = '';
+    if (isCustom) {
+      const fe = ct(r.fleet_enabled||'');
+      const mRaw = ct(r.monitored||'');
+      monitored = fe==='f' ? 'no'
+        : (mRaw==='t'||mRaw==='yes') ? 'yes'
+        : (mRaw==='f'||mRaw==='no')  ? 'no' : '';
+    }
+    // GEN Guardian
+    const su = serial.toUpperCase();
+    const genGuardian = su.startsWith('P1003100')?'GEN3':su.startsWith('P1002260')||su.startsWith('P1001229')?'GEN2':su.startsWith('P04025')?'GEN1':'';
+    // SIMs
+    const simG   = imeiG   ? (_simMap.get(normK(imeiG))  ||'') : '';
+    const simFFC = imeiFFC ? (_simMap.get(normK(imeiFFC))||'') : '';
+    // GPS: IMEI → Hardware simchip (ICC) → then use ICC for SIM fields
+    let simGPS = imeiGPS ? (_simMap.get(normK(imeiGPS))||'') : '';
+    if (!simGPS && imeiGPS && raw.hardware) {
+      const hwRow = raw.hardware.find(h => normK(h.imei||'')=== normK(imeiGPS));
+      if (hwRow && hwRow.simchip) simGPS = normK(hwRow.simchip);
+    }
+    const gSim   = getSimFields(simG,  'g');
+    const fSim   = getSimFields(simFFC,'ffc');
+    const gpSim  = getSimFields(simGPS,'gps');
+    return {
+      cuenta, flota, vehicle, serial, imeiG, genGuardian, monitored,
+      simG,
+      gP1:gSim.gP1||'', gP2:gSim.gP2||'',
+      gFecha:gSim.gFecha||'', gDatos:gSim.gDatos||'', gEstado:gSim.gEstado||'',
+      ultimoContacto:'',
+      imeiFFC, simFFC,
+      ffcP1:fSim.ffcP1||'', ffcP2:fSim.ffcP2||'',
+      ffcFecha:fSim.ffcFecha||'', ffcDatos:fSim.ffcDatos||'', ffcEstado:fSim.ffcEstado||'',
+      ffcModel: (() => {
+        if (!imeiFFC) return '';
+        const ki = normK(imeiFFC);
+        // Step 1: Hardware List (primary)
+        let model = '';
+        if (_hwListLocalMap) { const m=_hwListLocalMap.get(ki); if(m) model=m; }
+        // Step 2: Listado Hardware fallback
+        if (!model) { const hwRow=_hwImeiMap.get(ki); if(hwRow) model=(hwRow.hardware_model||'').trim(); }
+        // Step 3: if MC30, get N1/N2 from Versiones (skip UNKNOWN)
+        if (model.toUpperCase().includes('MC30')) {
+          const ver = _ffcVerMap.get(ki);
+          if (ver && ver.toUpperCase() !== 'UNKNOWN') return ver;
+        }
+        // Step 4: Versiones fallback for non-MC30 (skip UNKNOWN)
+        if (!model) {
+          const ver = _ffcVerMap.get(ki);
+          if (ver && ver.toUpperCase() !== 'UNKNOWN') return ver;
+        }
+        return model || ct(r.ffcModel||r.ffc_model||'');
+      })(),
+      imeiGPS, simGPS,
+      gpsP1:gpSim.gpsP1||'', gpsP2:gpSim.gpsP2||'',
+      gpsFecha:gpSim.gpsFecha||'', gpsDatos:gpSim.gpsDatos||'', gpsEstado:gpSim.gpsEstado||'',
+    };
+  };
+  // Combine: ALL Custom rows + Unidades rows not already in Custom (by serial or vehicle)
+  const _custSerials  = new Set(raw.invCustom.map(r=>(r.serial_number||'').trim().toLowerCase()).filter(Boolean));
+  const _custVehicles = new Set(raw.invCustom.map(r=>(r.vehicle||'').trim().toLowerCase()).filter(Boolean));
+  const _uExtra = (raw.unidades||[]).filter(r => {
+    const s = (r.guardianSerial||'').trim().toLowerCase();
+    const v = (r.vehicleName||r.vehiclePlate||'').trim().toLowerCase();
+    return !_custSerials.has(s) && !_custVehicles.has(v);
+  });
+  const allSources = [...raw.invCustom, ..._uExtra];
+  const rows = allSources.map(buildRow);
+  loadSimFromMemory(rows);
+  addLog('ok', `Gestión SIM: ${raw.invCustom.length} Custom + ${_uExtra.length} Unidades exclusivas = ${rows.length.toLocaleString()} filas`);
+}
+
+function loadSimFromMemory(rows) {
+  sAllRows = rows.map(r => ({...r})); // clone
+  clearSFilters();
+  document.getElementById('simDrop').style.display='none';
+  document.getElementById('simLayout').style.display='grid';
+  sPage=1; sSortCol=null;
+  applySFilters();
+}
+
+
+function exportSFiltered() {
+  if (!sFiltered.length) return;
+  // Use SCOLS so headers and fields always stay in sync with the table
+  const HDRS   = SCOLS.map(col => col.label);
+  const fields = SCOLS.map(col => col.key);
+  const ct = v => ({ t:'s', v:(v||''), z:'@' });
+  // For reglaEntel columns, compute dynamically from the fecha field
+  const ctRegla = (row, fechaKey) => {
+    const v = calcReglaEntel(row[fechaKey]||'');
+    return { t:'s', v:v||'', z:'@' };
+  };
+  const wb = XLSX.utils.book_new();
+  const ws = {};
+  const range = { s:{r:0,c:0}, e:{r:sFiltered.length, c:HDRS.length-1} };
+  HDRS.forEach((h,ci) => { ws[XLSX.utils.encode_cell({r:0,c:ci})] = {t:'s', v:h}; });
+  sFiltered.forEach((row,ri) => {
+    fields.forEach((f,ci) => {
+      let cell;
+      if (f==='gReglaEntel')   cell = ctRegla(row,'gFecha');
+      else if (f==='ffcReglaEntel') cell = ctRegla(row,'ffcFecha');
+      else cell = ct(row[f]);
+      ws[XLSX.utils.encode_cell({r:ri+1,c:ci})] = cell;
+    });
+  });
+  ws['!ref'] = XLSX.utils.encode_range(range);
+  ws['!cols'] = SCOLS.map(() => ({wch:22}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Gestion SIM');
+
+  // ── Hoja 2: Resumen consumo por grupo ────────────────────────────────
+  // Usa raw.sims para calcular totales por Personalizado 1
+  if (raw.sims && raw.sims.length) {
+    const parseMB = v => { const s=(v||'').replace(',','.').replace(/ /g,'').trim(); return parseFloat(s)||0; };
+    const GROUPS = ['GUARDIAN GEN1','GUARDIAN GEN2','GUARDIAN GEN3','MC30','JC400','ME40','MDVR','FFCLIVE'];
+    const groupStats = GROUPS.map(g => {
+      const rows = raw.sims.filter(r => (r['Personalizado 1']||'').trim() === g);
+      const totalMB = rows.reduce((acc,r) => acc + parseMB(r['Datos Mensual']), 0);
+      const activas  = rows.filter(r => (r['Estado']||'').trim().toUpperCase() === 'ACTIVA').length;
+      return { grupo:g, total:rows.length, activas, totalMB, totalGB: totalMB/1024 };
+    });
+    // Add totals row
+    const sumTotal = groupStats.reduce((a,r)=>a+r.total,0);
+    const sumActivas = groupStats.reduce((a,r)=>a+r.activas,0);
+    const sumMB = groupStats.reduce((a,r)=>a+r.totalMB,0);
+    const wsR = {};
+    const rHdrs = ['GRUPO','TOTAL SIMs','ACTIVAS','TOTAL MB','TOTAL GB'];
+    rHdrs.forEach((h,ci) => { wsR[XLSX.utils.encode_cell({r:0,c:ci})] = {t:'s',v:h}; });
+    groupStats.forEach((g,ri) => {
+      const row = [g.grupo, g.total, g.activas, Math.round(g.totalMB), Math.round(g.totalGB)];
+      row.forEach((v,ci) => { wsR[XLSX.utils.encode_cell({r:ri+1,c:ci})] = {t:typeof v==='number'?'n':'s', v, z:ci>=3?'#,##0.00':'#,##0'}; });
+    });
+    // Totals row
+    const tRow = ['TOTAL', sumTotal, sumActivas, Math.round(sumMB*100)/100, Math.round(sumMB/1024*100)/100, sumTotal>0?Math.round(sumMB/sumTotal*100)/100:0];
+    tRow.forEach((v,ci) => { wsR[XLSX.utils.encode_cell({r:groupStats.length+1,c:ci})] = {t:typeof v==='number'?'n':'s', v}; });
+    wsR['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:groupStats.length+1,c:4}});
+    wsR['!cols'] = [{wch:22},{wch:12},{wch:10},{wch:16},{wch:12}];
+    XLSX.utils.book_append_sheet(wb, wsR, 'Resumen Consumo');
+  }
+
+  const suffix = sFiltered.length < sAllRows.length ? `_filtrado_${sFiltered.length}` : '_completo';
+  XLSX.writeFile(wb, `gestion_sim${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`✓ Exportados ${sFiltered.length.toLocaleString()} registros`, 'ok');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  buildSidebar();
+  buildSSidebar();
+  buildM2mSidebar();
+  buildCobroSidebar();
+});
+
+// ═══════════════════════════════════════════════
+//  ── SIMs M2M PAGE ──
+// ═══════════════════════════════════════════════
+
+const M2M_COLS = [
+  {key:'icc',           label:'ICC / SIM'},
+  {key:'imei',          label:'IMEI'},
+  {key:'dispositivo',   label:'DISPOSITIVO'},
+  {key:'tipoDispositivo',label:'TIPO DISPOSITIVO'},
+  {key:'platform',      label:'PLATFORM'},
+  {key:'cuenta',        label:'CUENTA'},
+  {key:'flota',         label:'FLOTA'},
+  {key:'vehiculo',      label:'VEHÍCULO'},
+  {key:'serial',        label:'SERIAL GUARDIAN'},
+  {key:'modeloHW',      label:'MODELO HW'},
+  {key:'marcaHW',       label:'MARCA HW'},
+  {key:'monitored',     label:'MONITOREADO'},
+  {key:'p1',            label:'PERSONALIZADO 1'},
+  {key:'p2',            label:'PERSONALIZADO 2'},
+  {key:'estado',        label:'ESTADO SIM'},
+  {key:'plan',          label:'PLAN'},
+  {key:'datosMB',       label:'DATOS MENSUAL (MB)'},
+  {key:'datosGB',       label:'DATOS MENSUAL (GB)'},
+  {key:'fechaActivacion',label:'FECHA ACTIVACIÓN'},
+  {key:'fuenteID',      label:'FUENTE IDENTIFICACIÓN'},
+];
+
+const M2M_FILTER_DEFS = [
+  {key:'cuenta',         label:'Cuenta',              col:'cuenta',         icon:'🏢',  ph:'(SMLA) COPEC\n...'},
+  {key:'flota',          label:'Flota',               col:'flota',          icon:'🚛',  ph:'(SMLA) TSM-CBB\n...'},
+  {key:'vehiculo',       label:'Vehículo',            col:'vehiculo',       icon:'🚗',  ph:'PSVR54\nPSVR56\n...'},
+  {key:'serial',         label:'Serial Guardian',     col:'serial',         icon:'🔑',  ph:'P1002260-S00045575\n...'},
+  {key:'icc',            label:'ICC / SIM',           col:'icc',            icon:'💳',  ph:'8956010000...\n...'},
+  {key:'imei',           label:'IMEI',                col:'imei',           icon:'📡',  ph:'867929064346770\n...'},
+  {key:'tipoDispositivo',label:'Tipo Dispositivo',    col:'tipoDispositivo',icon:'📱',  ph:'GUARDIAN GEN2\nMC30\nJC400\n...'},
+  {key:'estado',         label:'Estado SIM',          col:'estado',         icon:'📶',  ph:'ACTIVA\nHIBERNADA\n...'},
+  {key:'p1',             label:'Personalizado 1',     col:'p1',             icon:'🏷️', ph:'GUARDIAN GEN2\nMC30\n...'},
+  {key:'fuenteID',       label:'Fuente Identificación',col:'fuenteID',      icon:'🔍',  ph:'Custom\nHardware\nGEN3\n...'},
+];
+
+const M2M_COL_ALIASES = {
+  'ICC / SIM':'icc','ICC':'icc',
+  'IMEI':'imei',
+  'DISPOSITIVO':'dispositivo','DISPOSITIVO (SIM)':'dispositivo',
+  'TIPO DISPOSITIVO':'tipoDispositivo',
+  'CUENTA':'cuenta','FLOTA':'flota',
+  'VEHÍCULO':'vehiculo','VEHICULO':'vehiculo','VEHICLE':'vehiculo',
+  'SERIAL GUARDIAN':'serial',
+  'MODELO HW':'modeloHW','MARCA HW':'marcaHW',
+  'MONITOREADO':'monitored',
+  'PERSONALIZADO 1':'p1','PERSONALIZADO 2':'p2',
+  'ESTADO SIM':'estado','ESTADO':'estado',
+  'DATOS MENSUAL (MB)':'datosMB','DATOS MENSUAL (GB)':'datosGB',
+  'FECHA ACTIVACIÓN':'fechaActivacion',
+  'FUENTE IDENTIFICACIÓN':'fuenteID',
+  'PLATFORM':'platform',
+  'PLAN':'plan',
+};
+
+const M2F = {};
+M2M_FILTER_DEFS.forEach(d => M2F[d.key] = new Set());
+
+let m2mAllRows = [];
+let m2mFiltered = [];
+let m2mPage = 1;
+let m2mPageSize = 50;
+let m2mSortCol = null;
+let m2mSortDir = 1;
+
+function buildM2mSidebar() {
+  const container = document.getElementById('m2mFilterGroups');
+  if (!container) return;
+  container.innerHTML = M2M_FILTER_DEFS.map(d => `
+    <div class="fg">
+      <div class="fg-label">${d.icon} ${d.label}</div>
+      <textarea class="filter-ta" id="m2fta-${d.key}"
+        placeholder="${d.ph}"
+        oninput="onM2mFilterInput('${d.key}', this.value)"
+        rows="2"></textarea>
+      <div class="fg-hint">Separa por línea o coma</div>
+    </div>
+  `).join('');
+}
+
+function onM2mFilterInput(key, val) {
+  M2F[key] = parseTerms(val);
+  m2mPage = 1;
+  applyM2mFilters();
+}
+
+function clearM2mFilters() {
+  M2M_FILTER_DEFS.forEach(d => {
+    M2F[d.key] = new Set();
+    const ta = document.getElementById('m2fta-'+d.key);
+    if (ta) ta.value = '';
+  });
+  m2mPage = 1;
+  applyM2mFilters();
+}
+
+function applyM2mFilters() {
+  const active = M2M_FILTER_DEFS.filter(d => M2F[d.key].size > 0);
+  m2mFiltered = m2mAllRows.filter(row => {
+    for (const d of active) {
+      const cell = (row[d.col]||'').toLowerCase();
+      if (![...M2F[d.key]].some(t => cell.includes(t))) return false;
+    }
+    return true;
+  });
+  if (m2mSortCol !== null) {
+    const colKey = M2M_COLS[m2mSortCol].key;
+    m2mFiltered.sort((a,b) => {
+      const av=(a[colKey]||'').toLowerCase(), bv=(b[colKey]||'').toLowerCase();
+      return av<bv?-m2mSortDir:av>bv?m2mSortDir:0;
+    });
+  }
+  renderM2mTable();
+  updateM2mInfo();
+}
+
+function updateM2mInfo() {
+  const el = document.getElementById('m2mResultInfo');
+  if (!el) return;
+  const t=m2mAllRows.length, s=m2mFiltered.length;
+  el.innerHTML = s===t ? `Mostrando <b>${t.toLocaleString()}</b> SIMs`
+                       : `<b>${s.toLocaleString()}</b> de ${t.toLocaleString()} SIMs`;
+}
+
+function renderM2mTable() {
+  const panel = document.getElementById('m2mTablePanel');
+  if (!m2mFiltered.length) {
+    panel.innerHTML = `<div class="empty-state"><div class="es-icon">📶</div>
+      <div class="es-title">${m2mAllRows.length?'Sin resultados':'Sin datos'}</div></div>`;
+    return;
+  }
+  const start=(m2mPage-1)*m2mPageSize, end=Math.min(start+m2mPageSize,m2mFiltered.length);
+  const page=m2mFiltered.slice(start,end);
+
+  const termsByCol={};
+  M2M_FILTER_DEFS.forEach(d=>{ termsByCol[d.col]=[...M2F[d.key]]; });
+
+  const hlM2m=(val,colKey,row)=>{
+    const v=String(val||'');
+    if(colKey==='reglaEntel'){
+      if(v==='SI') return `<span style="color:var(--green);font-weight:600">✓ SI</span>`;
+      if(v==='NO') return `<span style="color:var(--amber);font-weight:600">✗ NO</span>`;
+      return `<span class="empty">—</span>`;
+    }
+    if(colKey==='monitored'){
+      if(v.toLowerCase()==='yes') return `<span style="color:var(--green);font-weight:600">✓ Yes</span>`;
+      if(v.toLowerCase()==='no')  return `<span style="color:var(--red);font-weight:600">✗ No</span>`;
+      return `<span style="color:var(--t3);font-style:italic">N/A</span>`;
+    }
+    if(colKey==='estado'){
+      const vl=v.toLowerCase();
+      if(vl==='activa') return `<span style="color:var(--green);font-weight:600">● ${esc(v)}</span>`;
+      if(vl==='hibernada'||vl==='en hibernación') return `<span style="color:var(--amber);font-weight:600">● ${esc(v)}</span>`;
+      if(vl.includes('baja')) return `<span style="color:var(--red);font-weight:600">● ${esc(v)}</span>`;
+      if(vl==='lista para usar') return `<span style="color:var(--purple);font-weight:600">● ${esc(v)}</span>`;
+      if(!v) return `<span class="empty">—</span>`;
+      return `<span style="color:var(--t2)">${esc(v)}</span>`;
+    }
+    if(!v) return `<span class="empty">—</span>`;
+    // Number formatting for MB/GB columns
+    if(colKey==='datosMB'||colKey==='datosGB'){
+      const n=parseFloat(v);
+      return isNaN(n)?esc(v):n.toLocaleString('es-CL',{maximumFractionDigits:3});
+    }
+    const terms=termsByCol[colKey]||[];
+    for(const t of terms){
+      const idx=v.toLowerCase().indexOf(t);
+      if(idx>=0) return esc(v.slice(0,idx))+`<mark class="hl">${esc(v.slice(idx,idx+t.length))}</mark>`+esc(v.slice(idx+t.length));
+    }
+    return esc(v);
+  };
+
+  const thSort=(label,ci)=>{
+    const cls=m2mSortCol===ci?(m2mSortDir===1?'asc':'desc'):'';
+    return `<th class="${cls}" onclick="m2mSort(${ci})">${label}<span class="si"></span></th>`;
+  };
+  const optSz=[25,50,100,200].map(n=>`<option value="${n}"${n===m2mPageSize?' selected':''}>${n}/pág</option>`).join('');
+
+  panel.innerHTML=`
+    <div class="tbl-header">
+      <button class="btn-green" style="font-size:10px;padding:5px 12px;border-radius:5px" onclick="exportM2m()">⬇ Exportar (${m2mFiltered.length.toLocaleString()})</button>
+      <select class="pg-size" onchange="m2mPgSize(this.value)" style="margin-left:8px">${optSz}</select>
+      <span class="tbl-meta" style="margin-left:auto">Filas <b>${start+1}–${end}</b> de <b>${m2mFiltered.length.toLocaleString()}</b></span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th style="width:32px;color:var(--t4)">#</th>
+          ${M2M_COLS.map((col,i)=>thSort(col.label,i)).join('')}
+        </tr></thead>
+        <tbody>
+          ${page.map((row,li)=>{
+            const gi=start+li;
+            return `<tr>
+              <td class="rn">${gi+1}</td>
+              ${M2M_COLS.map(col=>`<td>${hlM2m(row[col.key],col.key,row)}</td>`).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${buildM2mPager(m2mFiltered.length)}`;
+}
+
+function buildM2mPager(total){
+  const pages=Math.ceil(total/m2mPageSize);
+  if(pages<=1) return '';
+  const MAX=7; let nums=[];
+  if(pages<=MAX){nums=Array.from({length:pages},(_,i)=>i+1);}
+  else{
+    const l=Math.max(1,m2mPage-2),r=Math.min(pages,m2mPage+2);
+    if(l>1) nums.push(1,'…');
+    for(let i=l;i<=r;i++) nums.push(i);
+    if(r<pages) nums.push('…',pages);
+  }
+  const btn=(lbl,pg,dis,on)=>
+    `<button class="pg${on?' on':''}" onclick="m2mGoPage(${pg})" ${dis?'disabled':''}>${lbl}</button>`;
+  return `<div class="pager">
+    ${btn('«',1,m2mPage===1,false)}${btn('‹',m2mPage-1,m2mPage===1,false)}
+    ${nums.map(p=>p==='…'?`<span class="pg-sep">…</span>`:btn(p,p,false,p===m2mPage)).join('')}
+    ${btn('›',m2mPage+1,m2mPage===pages,false)}${btn('»',pages,m2mPage===pages,false)}
+    <span class="pager-info">Pág ${m2mPage}/${pages}</span>
+  </div>`;
+}
+function m2mGoPage(p){const pages=Math.ceil(m2mFiltered.length/m2mPageSize);m2mPage=Math.max(1,Math.min(p,pages));renderM2mTable();document.getElementById('m2mTablePanel').scrollIntoView({behavior:'smooth',block:'start'});}
+function m2mPgSize(v){m2mPageSize=parseInt(v);m2mPage=1;renderM2mTable();}
+function m2mSort(ci){if(m2mSortCol===ci)m2mSortDir=-m2mSortDir;else{m2mSortCol=ci;m2mSortDir=1;}applyM2mFilters();}
+
+// ── Build rows from raw sources ──────────────────────────────────────────
+function buildM2mRows() {
+  if (!raw.sims || !raw.sims.length) { toast('Carga primero el CSV de SIMs M2M en la pestaña Exportar','err'); return; }
+
+  const normK = v => (v||'').replace(/\D/g,'');
+  const ct    = v => (v||'').trim();
+
+  // Build lookup maps
+  const customImeiMap = new Map();
+  const customSerialMap = new Map();
+  if (raw.invCustom) raw.invCustom.forEach(r => {
+    const k=normK(r.imei||''); if(k&&k.length>=5) customImeiMap.set(k,r);
+    const ks=(r.serial_number||'').trim().toLowerCase(); if(ks) customSerialMap.set(ks,r);
+  });
+  // InventoryReport serial map for GEN3 fallback
+  const invSerialMap2 = new Map();
+  if (raw.inventory) raw.inventory.forEach(r => {
+    const k=(r.serial_number||'').trim().toLowerCase(); if(k) invSerialMap2.set(k,r);
+  });
+  const hwImeiMap = new Map();
+  if (raw.hardware) raw.hardware.forEach(r => {
+    const k=normK(r.imei||''); if(k) hwImeiMap.set(k,r);
+  });
+  // hwListMap: additional model source (hardware_list.csv)
+  const hwListImeiMap = new Map();
+  if (raw.hwList) raw.hwList.forEach(r => {
+    const k=normK(r['imei']||r['IMEI']||'');
+    if(k&&k.length>=10) hwListImeiMap.set(k,(r['name']||r['Name']||'').trim());
+  });
+  const invImeiMap = new Map();
+  if (raw.inventory) raw.inventory.forEach(r => {
+    const k=normK(r.imei||''); if(k&&k.length>=10) invImeiMap.set(k,r);
+  });
+  // GEN3 provisional: serial→IMEI (already loaded as imeiExtra)
+  const gen3SerialMap = new Map();
+  if (raw.imeiExtra) raw.imeiExtra.forEach(r => {
+    const s=(r.serial_number||'').trim().toLowerCase();
+    const i=normK(r.imei||'');
+    if(s&&i) gen3SerialMap.set(i,s); // imei→serial
+  });
+
+  // Dispositivo → tipo
+  const deviceToType = disp => {
+    const d=(disp||'').toUpperCase();
+    if(d.includes('SIM7600G-H'))  return 'GUARDIAN GEN3';
+    if(d.includes('EG25-G'))      return 'GUARDIAN GEN2';
+    if(d.includes('EC25-AUX'))    return 'MC30-02 / MDVR';
+    if(d.includes('UC20')||d.includes('QUECTEL UC20')) return 'GUARDIAN GEN2 v1 (P1001229)';
+    if(d.includes('HE910')||d.includes('TELIT'))       return 'GUARDIAN GEN1';
+    if(d.includes('C28')||d.includes('JC400')||d.includes('EDGECAM')) return 'JC400 (C28)';
+    if(d.includes('GPS-403'))     return 'GPS-403';
+    if(d.includes('UC15')||d.includes('FMU130')) return 'GPS FMU130';
+    if(d.includes('EC200A')||d.includes('RUT200')) return 'ROUTER / STARLINK';
+    if(d.includes('CANCUN')||d.includes('MOTO'))  return 'Moto G54';
+    return '';
+  };
+
+  // Guardian GEN from serial
+  const genFromSerial = s => {
+    const u=s.toUpperCase();
+    if(u.startsWith('P1003100')) return 'GUARDIAN GEN3';
+    if(u.startsWith('P1002260')||u.startsWith('P1001229')) return 'GUARDIAN GEN2';
+    if(u.startsWith('P04025')) return 'GUARDIAN GEN1';
+    return '';
+  };
+
+  const rows = raw.sims.map(r => {
+    const icc   = normK(r['ICC']||'');
+    const imei  = normK(r['IMEI']||'');
+    const disp  = ct(r['Dispositivo']||'');
+    const p1    = ct(r['Personalizado 1']||'');
+    const p2    = ct(r['Personalizado 2']||'');
+    const estado= ct(r['Estado']||'');
+    const plan  = ct(r['Plan']||'');
+    const kb    = parseFloat((r['Datos Mensual']||'0').replace(',','.').replace(/ /g,''))||0;
+    const fecha = ct(r['Fecha de activación']||'');
+
+    let cuenta='', flota='', vehiculo='', serial='', platform='', modeloHW='', marcaHW='', monitored='', fuenteID='';
+    // Use p1 as tipoDispositivo only for known device groups, not stock/admin labels
+    const DEVICE_P1 = ['GUARDIAN GEN1','GUARDIAN GEN2','GUARDIAN GEN3','MC30','JC400','ME40','MDVR','FFCLIVE','FFCLIVE DESCONOCIDO'];
+    // Map shorthand P1 values to full device type names
+    const P1_REMAP = {'GEN3':'GUARDIAN GEN3','GEN2':'GUARDIAN GEN2','GEN1':'GUARDIAN GEN1'};
+    const p1Mapped = P1_REMAP[p1] || p1;
+    let tipoDispositivo = deviceToType(disp) || (DEVICE_P1.includes(p1Mapped) ? p1Mapped : '') || '';
+
+    if (imei) {
+      // 1. Inventory Custom
+      const cr = customImeiMap.get(imei);
+      if (cr) {
+        cuenta=ct(cr.account||''); flota=ct(cr.fleet||''); vehiculo=ct(cr.vehicle||'');
+        serial=ct(cr.serial_number||'');
+        platform=ct(cr.platform||'');
+        const fe=ct(cr.fleet_enabled||''), mRaw=ct(cr.monitored||'');
+        monitored = fe==='f'?'no':(mRaw==='t'||mRaw==='yes')?'yes':(mRaw==='f'||mRaw==='no')?'no':'';
+        fuenteID='Inventory Custom';
+        if(!tipoDispositivo&&serial) tipoDispositivo=genFromSerial(serial)||tipoDispositivo;
+      }
+      // 2. Hardware (model always from HW)
+      const hr = hwImeiMap.get(imei);
+      // Hardware List: primary model
+      const hlModel = hwListImeiMap.get(imei);
+      if(hlModel){modeloHW=hlModel;if(!fuenteID)fuenteID='Hardware List';tipoDispositivo=hlModel;}
+      // Listado Hardware: fallback model + brand + cuenta
+      if (hr) {
+        if(!modeloHW){modeloHW=ct(hr.hardware_model||'');}
+        marcaHW=ct(hr.hardware_brand||'');
+        if(!cuenta) { cuenta=ct(hr['compañía_nombre']||''); if(!fuenteID)fuenteID='Hardware'; }
+        if(modeloHW) tipoDispositivo=modeloHW; // Hardware model takes priority
+      }
+      // 3. InventoryReport fallback
+      if(!cuenta) {
+        const ir = invImeiMap.get(imei);
+        if(ir) {
+          cuenta=ct(ir.account||''); flota=ct(ir.fleet||''); vehiculo=ct(ir.vehicle||'');
+          serial=ct(ir.serial_number||'');
+          const mRaw=ct(ir.monitored||'');
+          monitored=(mRaw==='yes')?'yes':(mRaw==='no')?'no':'';
+          fuenteID='InventoryReport';
+          if(!tipoDispositivo&&serial) tipoDispositivo=genFromSerial(serial)||tipoDispositivo;
+        }
+      }
+      // 4. GEN3 provisional: IMEI → serial → then lookup Custom/Inventory by serial
+      const gen3serial = gen3SerialMap.get(imei);
+      if(gen3serial) {
+        if(!serial) serial=gen3serial;
+        if(!tipoDispositivo) tipoDispositivo='GUARDIAN GEN3';
+        if(!fuenteID) fuenteID='GEN3 Provisional';
+        // Lookup cuenta/flota/vehicle from Custom by serial
+        if(!cuenta) {
+          const cr2 = customSerialMap ? customSerialMap.get(gen3serial.toLowerCase()) : null;
+          if(cr2) {
+            cuenta=ct(cr2.account||''); flota=ct(cr2.fleet||''); vehiculo=ct(cr2.vehicle||'');
+            platform=ct(cr2.platform||'');
+            const fe=ct(cr2.fleet_enabled||''), mRaw=ct(cr2.monitored||'');
+            monitored=fe==='f'?'no':(mRaw==='t'||mRaw==='yes')?'yes':(mRaw==='f'||mRaw==='no')?'no':'';
+            fuenteID='GEN3 Provisional + Custom';
+          }
+        }
+        // Fallback to InventoryReport by serial
+        if(!cuenta) {
+          const ir2 = invSerialMap2 ? invSerialMap2.get(gen3serial.toLowerCase()) : null;
+          if(ir2) {
+            cuenta=ct(ir2.account||''); flota=ct(ir2.fleet||''); vehiculo=ct(ir2.vehicle||'');
+            const mRaw=ct(ir2.monitored||'');
+            monitored=(mRaw==='yes')?'yes':(mRaw==='no')?'no':'';
+            fuenteID='GEN3 Provisional + InventoryReport';
+          }
+        }
+      }
+      if(!fuenteID&&disp) fuenteID='Dispositivo SIM';
+      if(!fuenteID) fuenteID='Sin identificar';
+    } else {
+      fuenteID='Sin IMEI';
+    }
+
+    return { icc, imei, dispositivo:disp, tipoDispositivo, platform,
+             cuenta, flota, vehiculo, serial,
+             modeloHW, marcaHW, monitored,
+             p1, p2, estado, plan, datosMB:Math.round(kb/1024*1000)/1000, datosGB:Math.round(kb/1024/1024*1000)/1000,
+             fechaActivacion:fecha, fuenteID };
+  });
+
+  loadM2mFromMemory(rows);
+  addLog('ok',`SIMs M2M: ${rows.length.toLocaleString()} filas procesadas`);
+}
+
+function loadM2mFromMemory(rows) {
+  m2mAllRows = rows;
+  clearM2mFilters();
+  document.getElementById('m2mDrop').style.display='none';
+  document.getElementById('m2mLayout').style.display='grid';
+  m2mPage=1; m2mSortCol=null;
+  applyM2mFilters();
+}
+
+function onM2mDrop(e){ e.preventDefault(); document.getElementById('m2mDrop').classList.remove('drag'); if(e.dataTransfer.files[0]) m2mReadFile(e.dataTransfer.files[0]); }
+function m2mFileChange(inp){ if(inp.files[0]) m2mReadFile(inp.files[0]); }
+function m2mReadFile(file){
+  const fr=new FileReader();
+  fr.onload=e=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array',raw:false});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rawData=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      m2mParseRows(rawData,file.name);
+    }catch(err){toast('Error: '+err.message,'err');}
+  };
+  fr.readAsArrayBuffer(file);
+}
+function m2mParseRows(rawData,fname){
+  if(rawData.length<2){toast('Archivo vacío','err');return;}
+  let hi=0;
+  for(let i=0;i<Math.min(5,rawData.length);i++){
+    const hits=rawData[i].filter(c=>M2M_COL_ALIASES[String(c).trim().toUpperCase()]);
+    if(hits.length>=2){hi=i;break;}
+  }
+  const hdrs=rawData[hi].map(h=>{const u=String(h).trim().toUpperCase();return M2M_COL_ALIASES[u]||null;});
+  m2mAllRows=[];
+  for(let i=hi+1;i<rawData.length;i++){
+    const r=rawData[i];
+    if(r.every(v=>v===''||v===null||v===undefined)) continue;
+    const obj={}; M2M_COLS.forEach(c=>obj[c.key]='');
+    hdrs.forEach((key,idx)=>{if(key) obj[key]=String(r[idx]??'').trim();});
+    m2mAllRows.push(obj);
+  }
+  if(!m2mAllRows.length){toast('Sin datos','err');return;}
+  clearM2mFilters();
+  document.getElementById('m2mDrop').style.display='none';
+  document.getElementById('m2mLayout').style.display='grid';
+  m2mPage=1; m2mSortCol=null;
+  applyM2mFilters();
+  toast(`✓ ${m2mAllRows.length.toLocaleString()} SIMs — ${fname}`,'ok');
+}
+
+// ── Export ────────────────────────────────────────────────────────────────
+function exportM2m(){
+  if(!m2mFiltered.length) return;
+  const HDRS=M2M_COLS.map(c=>c.label);
+  const fields=M2M_COLS.map(c=>c.key);
+  const ct=v=>({t:'s',v:(v===undefined||v===null)?'':String(v),z:'@'});
+  const wb=XLSX.utils.book_new();
+  const ws={};
+  const range={s:{r:0,c:0},e:{r:m2mFiltered.length,c:HDRS.length-1}};
+  HDRS.forEach((h,ci)=>{ws[XLSX.utils.encode_cell({r:0,c:ci})]={t:'s',v:h};});
+  m2mFiltered.forEach((row,ri)=>{
+    fields.forEach((f,ci)=>{ws[XLSX.utils.encode_cell({r:ri+1,c:ci})]=ct(row[f]);});
+  });
+  ws['!ref']=XLSX.utils.encode_range(range);
+  ws['!cols']=M2M_COLS.map(()=>({wch:20}));
+  XLSX.utils.book_append_sheet(wb,ws,'SIMs M2M');
+  // ── Hoja 2: Resumen consumo por TIPO DISPOSITIVO ─────────────────────
+  if (m2mAllRows.length) {
+    // Normalize tipoDispositivo to canonical group names
+    const normalizeType = tipo => {
+      const t = (tipo||'').trim();
+      if(['GUARDIAN GEN2','GUARDIAN GEN2 v1 (P1001229)'].includes(t))                       return 'GUARDIAN GEN2';
+      if(['GUARDIAN GEN3','GEN3'].includes(t))                                               return 'GUARDIAN GEN3';
+      if(['JC400A','JC400 (C28)','JC400D','JC400P','JC400'].includes(t))                    return 'JC400';
+      if(['MC30-02','MC30','MC30-02 / MDVR'].includes(t))                                   return 'MC30-02';
+      if(['ME40-02','ME40'].includes(t))                                                     return 'ME40';
+      if(['MDVR','MA80-04','MA80-08'].includes(t))                                           return 'MDVR';
+      if(['ROUTER / STARLINK','ROUTER TELTONIKA STARLINK','RUT200','EC200A-AU'].includes(t)) return 'ROUTER / STARLINK';
+      if(['FFCLIVE','FFCLIVE DESCONOCIDO'].includes(t))                                      return 'FFCLIVE';
+      // No device identified
+      if(!t || t.startsWith('STOCK') || t.startsWith('SOLICITUD') ||
+         t.startsWith('CANDIDAT') || t.startsWith('REVISAR') ||
+         t.startsWith('SIMCARD') || t==='DISPOSITIVO CELULAR' ||
+         t==='SIMCARD HORUX M2M' || t==='HORUX M2M') return 'Activas sin consumo';
+      return t;
+    };
+    const KNOWN_FINAL = ['GUARDIAN GEN1','GUARDIAN GEN2','GUARDIAN GEN3',
+      'MC30-02','JC400','ME40','MDVR','GPS FMU130','GPS-403',
+      'ROUTER / STARLINK','Moto G54','FFCLIVE',
+      'Sin dispositivo con consumo','Sin dispositivo sin consumo'];
+    const tipoMap = new Map();
+    m2mAllRows.forEach(r => {
+      const normalized = normalizeType(r.tipoDispositivo);
+      const mb = parseFloat(r.datosMB)||0;
+      let key;
+      if (normalized === 'Activas sin consumo') {
+        key = mb > 0 ? 'Sin dispositivo con consumo' : 'Sin dispositivo sin consumo';
+      } else {
+        key = KNOWN_FINAL.includes(normalized) ? normalized : normalized||'Sin dispositivo sin consumo';
+      }
+      if(!tipoMap.has(key)) tipoMap.set(key,{total:0,activas:0,totalMB:0});
+      const g = tipoMap.get(key);
+      g.total++;
+      if((r.estado||'').trim().toUpperCase()==='ACTIVA') g.activas++;
+      g.totalMB += parseFloat(r.datosMB)||0;
+    });
+    // Sort: known types by count desc, STOCK/OTROS last
+    const LAST_GROUPS = ['Sin dispositivo con consumo','Sin dispositivo sin consumo'];
+    const sortedTipos = [
+      ...[...tipoMap.keys()].filter(k=>!LAST_GROUPS.includes(k))
+        .sort((a,b)=>tipoMap.get(b).total - tipoMap.get(a).total),
+      ...LAST_GROUPS.filter(k=>tipoMap.has(k))
+    ];
+    const sumTotal   = m2mAllRows.length;
+    const sumActivas = m2mAllRows.filter(r=>(r.estado||'').trim().toUpperCase()==='ACTIVA').length;
+    const sumMB      = m2mAllRows.reduce((acc,r)=>acc+(parseFloat(r.datosMB)||0),0);
+    const wsR = {};
+    const rHdrs = ['TIPO DISPOSITIVO','TOTAL SIMs','ACTIVAS','TOTAL MB','TOTAL GB','PROMEDIO MB/DISPOSITIVO'];
+    rHdrs.forEach((h,ci) => { wsR[XLSX.utils.encode_cell({r:0,c:ci})] = {t:'s',v:h}; });
+    sortedTipos.forEach((tipo,ri) => {
+      const g = tipoMap.get(tipo);
+      const promedio = g.total > 0 ? Math.round(g.totalMB/g.total*100)/100 : 0;
+      const row = [tipo, g.total, g.activas, Math.round(g.totalMB*100)/100, Math.round(g.totalMB/1024*100)/100, promedio];
+      row.forEach((v,ci) => { wsR[XLSX.utils.encode_cell({r:ri+1,c:ci})] = {t:typeof v==='number'?'n':'s', v}; });
+    });
+    const tRow = ['TOTAL', sumTotal, sumActivas, Math.round(sumMB), Math.round(sumMB/1024)];
+    tRow.forEach((v,ci) => { wsR[XLSX.utils.encode_cell({r:sortedTipos.length+1,c:ci})] = {t:typeof v==='number'?'n':'s', v, z:ci>=3?'#,##0.00':'#,##0'}; });
+    wsR['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0}, e:{r:sortedTipos.length+1,c:5}});
+    wsR['!cols'] = [{wch:30},{wch:12},{wch:10},{wch:16},{wch:12},{wch:22}];
+    XLSX.utils.book_append_sheet(wb, wsR, 'Resumen Consumo');
+  }
+  const suffix=m2mFiltered.length<m2mAllRows.length?`_filtrado_${m2mFiltered.length}`:'_completo';
+  XLSX.writeFile(wb,`sims_m2m${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`✓ ${m2mFiltered.length.toLocaleString()} SIMs exportadas`,'ok');
+}
+
+function goToM2m(){
+  buildM2mRows();
+  switchTab('m2m');
+}
+
+// ═══════════════════════════════════════════════
+//  ── COBRO PAGE ──
+// ═══════════════════════════════════════════════
+
+const COBRO_COLS = [
+  {key:'icc',           label:'ICC'},
+  {key:'empresa',       label:'EMPRESA'},
+  {key:'estado',        label:'ESTADO'},
+  {key:'plan',          label:'PLAN'},
+  {key:'tipoSim',       label:'TIPO SIM'},
+  {key:'mbPlan',        label:'MB PLAN'},
+  {key:'consumoMB',     label:'CONSUMO MB'},
+  {key:'costoPlan',     label:'COSTO PLAN'},
+  {key:'costoTotal',    label:'COSTO TOTAL'},
+  {key:'moneda',        label:'MONEDA'},
+  // Crossed from SIMs M2M
+  {key:'imei',          label:'IMEI'},
+  {key:'tipoDispositivo',label:'TIPO DISPOSITIVO'},
+  {key:'cuenta',        label:'CUENTA'},
+  {key:'flota',         label:'FLOTA'},
+  {key:'vehiculo',      label:'VEHÍCULO'},
+  {key:'serial',        label:'SERIAL GUARDIAN'},
+  {key:'p1',            label:'PERSONALIZADO 1'},
+  {key:'p2',            label:'PERSONALIZADO 2'},
+  {key:'fuenteID',      label:'FUENTE IDENTIFICACIÓN'},
+  {key:'monitored',     label:'MONITOREADO'},
+  {key:'reglaEntel',    label:'REGLA ENTEL'},
+];
+
+const COBRO_FILTER_DEFS = [
+  {key:'cuenta',         label:'Cuenta',           col:'cuenta',          icon:'🏢', ph:'(SMLA) COPEC\n...'},
+  {key:'flota',          label:'Flota',            col:'flota',           icon:'🚛', ph:'(SMLA) TSM-CBB\n...'},
+  {key:'tipoDispositivo',label:'Tipo Dispositivo', col:'tipoDispositivo', icon:'📱', ph:'GUARDIAN GEN2\nMC30-02\n...'},
+  {key:'plan',           label:'Plan',             col:'plan',            icon:'📋', ph:'AT&T GLOBAL 1 GB\n...'},
+  {key:'estado',         label:'Estado',           col:'estado',          icon:'📶', ph:'ACTIVA\nHIBERNADA\n...'},
+  {key:'icc',            label:'ICC',              col:'icc',             icon:'💳', ph:'895601...\n...'},
+  {key:'imei',           label:'IMEI',             col:'imei',            icon:'📡', ph:'867929...\n...'},
+  {key:'moneda',         label:'Moneda',           col:'moneda',          icon:'💰', ph:'CLP\nUSD\n...'},
+];
+
+const COBRO_COL_ALIASES = {
+  'ICC':'icc','EMPRESA':'empresa','ESTADO':'estado','PLAN':'plan',
+  'TIPO SIM':'tipoSim','MB PLAN':'mbPlan','CONSUMO MB':'consumoMB',
+  'COSTO PLAN':'costoPlan','COSTO TOTAL':'costoTotal','MONEDA':'moneda',
+  'IMEI':'imei','TIPO DISPOSITIVO':'tipoDispositivo',
+  'CUENTA':'cuenta','FLOTA':'flota','VEHÍCULO':'vehiculo','VEHICULO':'vehiculo',
+  'SERIAL GUARDIAN':'serial','PERSONALIZADO 1':'p1','PERSONALIZADO 2':'p2',
+  'FUENTE IDENTIFICACIÓN':'fuenteID',
+  'MONITOREADO':'monitored',
+  'REGLA ENTEL':'reglaEntel',
+};
+
+const CF = {};
+COBRO_FILTER_DEFS.forEach(d => CF[d.key] = new Set());
+
+let cobroAllRows = [];
+let cobroFiltered = [];
+let cobroPage = 1;
+let cobroPageSize = 50;
+let cobroSortCol = null;
+let cobroSortDir = 1;
+
+function buildCobroSidebar() {
+  const container = document.getElementById('cobroFilterGroups');
+  if (!container) return;
+  container.innerHTML = COBRO_FILTER_DEFS.map(d => `
+    <div class="fg">
+      <div class="fg-label">${d.icon} ${d.label}</div>
+      <textarea class="filter-ta" id="cfta-${d.key}"
+        placeholder="${d.ph}"
+        oninput="onCobroFilterInput('${d.key}', this.value)"
+        rows="2"></textarea>
+      <div class="fg-hint">Separa por línea o coma</div>
+    </div>
+  `).join('');
+}
+
+function onCobroFilterInput(key, val) {
+  CF[key] = parseTerms(val);
+  cobroPage = 1;
+  applyCobroFilters();
+}
+
+function clearCobroFilters() {
+  COBRO_FILTER_DEFS.forEach(d => {
+    CF[d.key] = new Set();
+    const ta = document.getElementById('cfta-'+d.key);
+    if (ta) ta.value = '';
+  });
+  cobroPage = 1;
+  applyCobroFilters();
+}
+
+function applyCobroFilters() {
+  const active = COBRO_FILTER_DEFS.filter(d => CF[d.key].size > 0);
+  cobroFiltered = cobroAllRows.filter(row => {
+    for (const d of active) {
+      const cell = (row[d.col]||'').toLowerCase();
+      if (![...CF[d.key]].some(t => cell.includes(t))) return false;
+    }
+    return true;
+  });
+  if (cobroSortCol !== null) {
+    const colKey = COBRO_COLS[cobroSortCol].key;
+    cobroFiltered.sort((a,b) => {
+      const av = String(a[colKey]||'').toLowerCase();
+      const bv = String(b[colKey]||'').toLowerCase();
+      return av<bv?-cobroSortDir:av>bv?cobroSortDir:0;
+    });
+  }
+  renderCobroTable();
+  updateCobroInfo();
+}
+
+function updateCobroInfo() {
+  const el = document.getElementById('cobroResultInfo');
+  if (!el) return;
+  const t=cobroAllRows.length, s=cobroFiltered.length;
+  // Show total cost of filtered rows
+  const totalCost = cobroFiltered.reduce((acc,r)=>acc+(parseFloat(r.costoTotal)||0),0);
+  el.innerHTML = (s===t
+    ? `<b>${t.toLocaleString()}</b> SIMs`
+    : `<b>${s.toLocaleString()}</b> de ${t.toLocaleString()} SIMs`)
+    + ` · Total: <b>${totalCost.toLocaleString('es-CL',{maximumFractionDigits:0})} CLP</b>`;
+}
+
+function renderCobroTable() {
+  const panel = document.getElementById('cobroTablePanel');
+  if (!cobroFiltered.length) {
+    panel.innerHTML = `<div class="empty-state"><div class="es-icon">💰</div>
+      <div class="es-title">${cobroAllRows.length?'Sin resultados':'Carga el archivo de cobro'}</div></div>`;
+    return;
+  }
+  const start=(cobroPage-1)*cobroPageSize, end=Math.min(start+cobroPageSize,cobroFiltered.length);
+  const page=cobroFiltered.slice(start,end);
+
+  const termsByCol={};
+  COBRO_FILTER_DEFS.forEach(d=>{ termsByCol[d.col]=[...CF[d.key]]; });
+
+  const hlCobro=(val,colKey)=>{
+    const v=String(val===null||val===undefined?'':val);
+    if(!v) return `<span class="empty">—</span>`;
+    if(colKey==='costoTotal'||colKey==='costoPlan'){
+      const n=parseFloat(v);
+      if(!isNaN(n)) return n.toLocaleString('es-CL',{maximumFractionDigits:0});
+    }
+    if(colKey==='monitored'){
+      if(v.toLowerCase()==='yes') return `<span style="color:var(--green);font-weight:600">✓ Yes</span>`;
+      if(v.toLowerCase()==='no')  return `<span style="color:var(--red);font-weight:600">✗ No</span>`;
+      return `<span style="color:var(--t3);font-style:italic">N/A</span>`;
+    }
+    if(colKey==='estado'){
+      const vl=v.toLowerCase();
+      if(vl==='activa') return `<span style="color:var(--green);font-weight:600">● ${esc(v)}</span>`;
+      if(vl==='hibernada'||vl.includes('hibern')) return `<span style="color:var(--amber);font-weight:600">● ${esc(v)}</span>`;
+      if(vl.includes('baja')) return `<span style="color:var(--red);font-weight:600">● ${esc(v)}</span>`;
+    }
+    const terms=termsByCol[colKey]||[];
+    for(const t of terms){
+      const idx=v.toLowerCase().indexOf(t);
+      if(idx>=0) return esc(v.slice(0,idx))+`<mark class="hl">${esc(v.slice(idx,idx+t.length))}</mark>`+esc(v.slice(idx+t.length));
+    }
+    return esc(v);
+  };
+
+  const thSort=(label,ci)=>{
+    const cls=cobroSortCol===ci?(cobroSortDir===1?'asc':'desc'):'';
+    return `<th class="${cls}" onclick="cobroSort(${ci})">${label}<span class="si"></span></th>`;
+  };
+  const optSz=[25,50,100,200].map(n=>`<option value="${n}"${n===cobroPageSize?' selected':''}>${n}/pág</option>`).join('');
+
+  panel.innerHTML=`
+    <div class="tbl-header">
+      <button class="btn-green" style="font-size:10px;padding:5px 12px;border-radius:5px" onclick="exportCobro()">⬇ Exportar (${cobroFiltered.length.toLocaleString()})</button>
+      <select class="pg-size" onchange="cobroPgSize(this.value)" style="margin-left:8px">${optSz}</select>
+      <span class="tbl-meta" style="margin-left:auto">Filas <b>${start+1}–${end}</b> de <b>${cobroFiltered.length.toLocaleString()}</b></span>
+    </div>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr>
+          <th style="width:32px;color:var(--t4)">#</th>
+          ${COBRO_COLS.map((col,i)=>thSort(col.label,i)).join('')}
+        </tr></thead>
+        <tbody>
+          ${page.map((row,li)=>{
+            const gi=start+li;
+            return `<tr>
+              <td class="rn">${gi+1}</td>
+              ${COBRO_COLS.map(col=>`<td>${hlCobro(row[col.key],col.key)}</td>`).join('')}
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${buildCobroPager(cobroFiltered.length)}`;
+}
+
+function buildCobroPager(total){
+  const pages=Math.ceil(total/cobroPageSize);
+  if(pages<=1) return '';
+  const MAX=7; let nums=[];
+  if(pages<=MAX){nums=Array.from({length:pages},(_,i)=>i+1);}
+  else{
+    const l=Math.max(1,cobroPage-2),r=Math.min(pages,cobroPage+2);
+    if(l>1) nums.push(1,'…');
+    for(let i=l;i<=r;i++) nums.push(i);
+    if(r<pages) nums.push('…',pages);
+  }
+  const btn=(lbl,pg,dis,on)=>
+    `<button class="pg${on?' on':''}" onclick="cobroGoPage(${pg})" ${dis?'disabled':''}>${lbl}</button>`;
+  return `<div class="pager">
+    ${btn('«',1,cobroPage===1,false)}${btn('‹',cobroPage-1,cobroPage===1,false)}
+    ${nums.map(p=>p==='…'?`<span class="pg-sep">…</span>`:btn(p,p,false,p===cobroPage)).join('')}
+    ${btn('›',cobroPage+1,cobroPage===pages,false)}${btn('»',pages,cobroPage===pages,false)}
+    <span class="pager-info">Pág ${cobroPage}/${pages}</span>
+  </div>`;
+}
+function cobroGoPage(p){const pages=Math.ceil(cobroFiltered.length/cobroPageSize);cobroPage=Math.max(1,Math.min(p,pages));renderCobroTable();document.getElementById('cobroTablePanel').scrollIntoView({behavior:'smooth',block:'start'});}
+function cobroPgSize(v){cobroPageSize=parseInt(v);cobroPage=1;renderCobroTable();}
+function cobroSort(ci){if(cobroSortCol===ci)cobroSortDir=-cobroSortDir;else{cobroSortCol=ci;cobroSortDir=1;}applyCobroFilters();}
+
+// ── Build rows from cobro file + SIMs M2M cross ───────────────────────────
+function buildCobroRows() {
+  if (!raw.sims || !raw.sims.length) {
+    toast('Carga primero el CSV de SIMs M2M en la pestaña Exportar','err');
+    return false;
+  }
+  // Build m2mAllRows if not already built
+  if (!m2mAllRows.length) buildM2mRows();
+
+  // ICC → m2m row index for fast lookup
+  const normK = v => (v||'').replace(/\D/g,'');
+  const m2mIccMap = new Map();
+  m2mAllRows.forEach(r => { if(r.icc) m2mIccMap.set(r.icc, r); });
+
+  return m2mIccMap;
+}
+
+function loadCobroFile(file) {
+  const fr = new FileReader();
+  fr.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb   = XLSX.read(data, {type:'array', raw:false});
+      // Try 'Detalle' sheet first, then first sheet
+      const sheetName = wb.SheetNames.includes('Detalle') ? 'Detalle' : wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rawData = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+      // Find header row (look for ICC column)
+      let hi = 0;
+      for (let i=0; i<Math.min(10, rawData.length); i++) {
+        if (rawData[i].some(v => String(v).trim().toUpperCase() === 'ICC')) { hi=i; break; }
+      }
+      const hdrs = rawData[hi].map(h => String(h).trim());
+
+      // Build ICC map from SIMs M2M
+      const m2mIccMap = buildCobroRows();
+      if (!m2mIccMap) return;
+
+      const normK = v => (v||'').replace(/\D/g,'');
+      const ct = v => String(v===null||v===undefined?'':v).trim();
+
+      cobroAllRows = [];
+      for (let i=hi+1; i<rawData.length; i++) {
+        const r = rawData[i];
+        if (r.every(v=>v===''||v===null||v===undefined)) continue;
+        const getCol = name => {
+          const idx = hdrs.findIndex(h => h.toUpperCase() === name.toUpperCase());
+          return idx>=0 ? r[idx] : '';
+        };
+        const icc = normK(ct(getCol('ICC')));
+        const m2m = m2mIccMap.get(icc) || {};
+
+        cobroAllRows.push({
+          icc,
+          empresa:    ct(getCol('Empresa')),
+          estado:     ct(getCol('Estado')),
+          plan:       ct(getCol('Plan')),
+          tipoSim:    ct(getCol('Tipo Sim')),
+          mbPlan:     ct(getCol('Mb Plan')),
+          consumoMB:  ct(getCol('Consumo MB')),
+          costoPlan:  ct(getCol('Costo Plan')),
+          costoTotal: ct(getCol('Costo Total')),
+          moneda:     ct(getCol('Moneda')),
+          // From SIMs M2M cross
+          imei:            m2m.imei            || '',
+          tipoDispositivo: m2m.tipoDispositivo || '',
+          cuenta:          m2m.cuenta          || '',
+          flota:           m2m.flota           || '',
+          vehiculo:        m2m.vehiculo         || '',
+          serial:          m2m.serial          || '',
+          p1:              m2m.p1              || '',
+          p2:              m2m.p2              || '',
+          fuenteID:        m2m.fuenteID        || (icc ? 'Sin match en SIMs' : ''),
+          monitored:       m2m.monitored        || '',
+          reglaEntel:      calcReglaEntel(m2m.fechaActivacion || ''),
+        });
+      }
+
+      document.getElementById('cobroDrop').style.display='none';
+      document.getElementById('cobroLayout').style.display='grid';
+      cobroPage=1; cobroSortCol=null;
+      clearCobroFilters();
+      applyCobroFilters();
+
+      const matched = cobroAllRows.filter(r=>r.imei||r.cuenta).length;
+      addLog('ok', `Cobro: ${cobroAllRows.length.toLocaleString()} SIMs · ${matched.toLocaleString()} cruzadas con SIMs M2M`);
+      toast(`✓ ${cobroAllRows.length.toLocaleString()} SIMs cargadas — ${matched.toLocaleString()} identificadas`, 'ok');
+    } catch(err) {
+      toast('Error: '+err.message, 'err');
+      addLog('err', '[COBRO] '+err.message);
+    }
+  };
+  fr.readAsArrayBuffer(file);
+}
+
+function onCobroDrop(e){ e.preventDefault(); document.getElementById('cobroDrop').classList.remove('drag'); if(e.dataTransfer.files[0]) loadCobroFile(e.dataTransfer.files[0]); }
+function cobroFileChange(inp){ if(inp.files[0]) loadCobroFile(inp.files[0]); }
+
+// ── Export ────────────────────────────────────────────────────────────────
+function exportCobro() {
+  if (!cobroFiltered.length) return;
+  const HDRS   = COBRO_COLS.map(c=>c.label);
+  const fields = COBRO_COLS.map(c=>c.key);
+  const ct = v => ({t:'s', v:(v===null||v===undefined)?'':String(v), z:'@'});
+  const cn = v => ({t:'n', v:parseFloat(v)||0});
+  const numFields = new Set(['mbPlan','consumoMB','costoPlan','costoTotal']);
+  const ctMon = v => { const vl=(v||'').toLowerCase(); return {t:'s',v:vl==='yes'?'Yes':vl==='no'?'No':'N/A',z:'@'}; };
+
+  const wb = XLSX.utils.book_new();
+  const ws = {};
+  const range = {s:{r:0,c:0}, e:{r:cobroFiltered.length, c:HDRS.length-1}};
+  HDRS.forEach((h,ci)=>{ ws[XLSX.utils.encode_cell({r:0,c:ci})]={t:'s',v:h}; });
+  cobroFiltered.forEach((row,ri)=>{
+    fields.forEach((f,ci)=>{
+      ws[XLSX.utils.encode_cell({r:ri+1,c:ci})] = f==='monitored' ? ctMon(row[f]) : numFields.has(f) ? cn(row[f]) : ct(row[f]);
+    });
+  });
+  ws['!ref'] = XLSX.utils.encode_range(range);
+  ws['!cols'] = COBRO_COLS.map(()=>({wch:20}));
+  XLSX.utils.book_append_sheet(wb, ws, 'Cobro');
+
+  // Sheet 2: Summary by tipo dispositivo
+  const tipoMap = new Map();
+  cobroFiltered.forEach(r => {
+    const normalizeType = t => {
+      if(['GUARDIAN GEN2','GUARDIAN GEN2 v1 (P1001229)'].includes(t)) return 'GUARDIAN GEN2';
+      if(['JC400A','JC400 (C28)','JC400D','JC400P','JC400'].includes(t)) return 'JC400';
+      if(['MC30-02','MC30','MC30-02 / MDVR'].includes(t)) return 'MC30-02';
+      if(['ME40-02','ME40'].includes(t)) return 'ME40';
+      if(['MDVR','MA80-04','MA80-08'].includes(t)) return 'MDVR';
+      if(['ROUTER / STARLINK','ROUTER TELTONIKA STARLINK','RUT200'].includes(t)) return 'ROUTER / STARLINK';
+      if(['FFCLIVE','FFCLIVE DESCONOCIDO'].includes(t)) return 'FFCLIVE';
+      return t || 'Sin identificar';
+    };
+    const key = normalizeType(r.tipoDispositivo);
+    if(!tipoMap.has(key)) tipoMap.set(key,{total:0,costo:0,consumoMB:0});
+    const g = tipoMap.get(key);
+    g.total++;
+    g.costo    += parseFloat(r.costoTotal)||0;
+    g.consumoMB += parseFloat(r.consumoMB)||0;
+  });
+  const wsR = {};
+  const rHdrs = ['TIPO DISPOSITIVO','TOTAL SIMs','COSTO TOTAL CLP','CONSUMO MB','CONSUMO GB'];
+  rHdrs.forEach((h,ci)=>{ wsR[XLSX.utils.encode_cell({r:0,c:ci})]={t:'s',v:h}; });
+  const sorted = [...tipoMap.entries()].sort((a,b)=>b[1].costo-a[1].costo);
+  sorted.forEach(([tipo,g],ri)=>{
+    const row=[tipo,g.total,Math.round(g.costo*100)/100,Math.round(g.consumoMB*100)/100,Math.round(g.consumoMB/1024*100)/100];
+    row.forEach((v,ci)=>{ wsR[XLSX.utils.encode_cell({r:ri+1,c:ci})]={t:typeof v==='number'?'n':'s',v,z:ci>=2?'#,##0.00':'#,##0'}; });
+  });
+  const sumCosto=cobroFiltered.reduce((a,r)=>a+(parseFloat(r.costoTotal)||0),0);
+  const sumMB=cobroFiltered.reduce((a,r)=>a+(parseFloat(r.consumoMB)||0),0);
+  const tRow=['TOTAL',cobroFiltered.length,Math.round(sumCosto*100)/100,Math.round(sumMB*100)/100,Math.round(sumMB/1024*100)/100];
+  tRow.forEach((v,ci)=>{ wsR[XLSX.utils.encode_cell({r:sorted.length+1,c:ci})]={t:typeof v==='number'?'n':'s',v,z:ci>=2?'#,##0.00':'#,##0'}; });
+  wsR['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:sorted.length+1,c:4}});
+  wsR['!cols']=[{wch:28},{wch:12},{wch:18},{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, wsR, 'Resumen por Dispositivo');
+
+  const suffix = cobroFiltered.length<cobroAllRows.length?`_filtrado_${cobroFiltered.length}`:'_completo';
+  XLSX.writeFile(wb, `cobro${suffix}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast(`✓ ${cobroFiltered.length.toLocaleString()} SIMs exportadas`, 'ok');
+}
+
+// ═══════════════════════════════════════════════
+//  SHARED UTILS
+// ═══════════════════════════════════════════════
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+let toastTimer;
+function toast(msg,type='') {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className=`toast show ${type}`;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.className='toast',3500);
+}
+
+</script>
+
+<!-- ══════════════════════════════════════════════════ -->
+<!--  PAGE: GESTIÓN DE SIM                                       -->
+<!-- ══════════════════════════════════════════════════ -->
+<div class="page" id="page-sim">
+<div class="wrap">
+
+  <!-- Drop zone (shown when no visor data) -->
+  <div id="simDrop" class="visor-drop"
+    ondragover="vDragOver(event)" ondragleave="vDragLeave(event)" ondrop="sDrop(event)">
+    <label style="cursor:pointer;display:block">
+      <div style="font-size:30px;margin-bottom:8px">💳</div>
+      <div class="visor-drop-title">Arrastra un XLSX aquí o haz clic para cargar</div>
+      <div class="visor-drop-sub">Carga el archivo exportado desde la pestaña Exportar<br>o cualquier XLSX con el mismo formato de columnas</div>
+      <input type="file" accept=".xlsx,.csv" onchange="sFileChange(this)">
+    </label>
+  </div>
+
+  <!-- Main visor layout -->
+  <div class="visor-layout" id="simLayout" style="display:none">
+    <div class="filter-sidebar">
+      <div class="sidebar-title">
+        Filtros
+        <span style="display:flex;gap:8px;align-items:center">
+          <button class="btn-green" style="font-size:10px;padding:4px 10px;border-radius:5px" onclick="exportSFiltered()">⬇ Exportar</button>
+          <span class="sidebar-clear" onclick="clearSFilters()">✕ Limpiar</span>
+        </span>
+      </div>
+      <div class="result-info" id="simResultInfo" style="margin-bottom:6px">—</div>
+      <div class="filter-bar-wrap" id="simFilterGroups"></div>
+    </div>
+    <div class="table-full">
+      <div class="table-panel" id="simTablePanel">
+        <div class="empty-state">
+          <div class="es-icon">🔍</div>
+          <div class="es-title">Carga un archivo para empezar</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</div>
+
+
+
+
+<div class="toast" id="toast"></div>
+</body>
+</html>

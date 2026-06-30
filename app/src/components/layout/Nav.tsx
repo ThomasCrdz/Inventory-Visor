@@ -8,8 +8,11 @@ interface NavProps {
 }
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'export', label: '📥 Exportar' },
-  { id: 'visor',  label: '🔍 Visor' },
+  { id: 'export', label: '📥 Exportar'     },
+  { id: 'visor',  label: '🔍 Visor'        },
+  { id: 'sim',    label: '💳 Gestión SIM'  },
+  { id: 'm2m',    label: '📶 SIMs M2M'     },
+  { id: 'cobro',  label: '💰 Cobro'        },
 ];
 
 export function Nav({ activeTab, onTabChange, recordCount }: NavProps) {

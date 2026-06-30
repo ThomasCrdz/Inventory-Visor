@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+﻿import { useEffect, useRef } from 'react';
 import type { LogEntry } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -26,13 +26,13 @@ export function LogBox({ logs }: LogBoxProps) {
 
   return (
     <div className="mt-[14px] bg-s2 border border-b1 rounded-[7px] overflow-hidden">
-      <div className="px-3 py-[7px] text-[9px] font-mono text-t3 uppercase tracking-[1px] border-b border-b1 flex justify-between">
+      <div className="px-3 py-[7px] text-[11px] font-mono text-t3 uppercase tracking-[1px] border-b border-b1 flex justify-between">
         <span>Log</span>
         <span>{logs.length}</span>
       </div>
       <div
         ref={bodyRef}
-        className="px-3 py-2 max-h-[120px] overflow-y-auto font-mono text-[10px] leading-[1.9]"
+        className="px-3 py-2 max-h-[120px] overflow-y-auto font-mono text-[12px] leading-[1.9]"
       >
         {logs.map((entry, i) => (
           <div key={i} className="flex gap-2">

@@ -70,7 +70,6 @@ export function VisorPage({ initialRows, onRecordCountChange }: VisorPageProps) 
             allCount={allRows.length}
             onFilter={setFilter}
             onClear={clearFilters}
-            onChangeFile={handleFile}
           />
 
           {/* Table */}

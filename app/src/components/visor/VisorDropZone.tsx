@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { cn } from '@/lib/utils';
 
 interface VisorDropZoneProps {
@@ -26,10 +26,10 @@ export function VisorDropZone({ onFile }: VisorDropZoneProps) {
     >
       <label className="cursor-pointer block">
         <div className="text-[30px] mb-2">📋</div>
-        <div className="text-[14px] font-bold mb-[6px]">
+        <div className="text-[16px] font-bold mb-[6px]">
           Arrastra un XLSX aquí o haz clic para cargar
         </div>
-        <div className="text-[11px] font-mono text-t2">
+        <div className="text-[13px] font-mono text-t2">
           Carga el archivo exportado desde la pestaña Exportar
           <br />o cualquier XLSX con el mismo formato de columnas
         </div>

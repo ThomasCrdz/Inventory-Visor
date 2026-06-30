@@ -1,4 +1,4 @@
-import type { ProcessStats } from '@/types';
+﻿import type { ProcessStats } from '@/types';
 
 interface StatsBoxProps {
   stats: ProcessStats;
@@ -22,7 +22,7 @@ export function StatsBox({ stats }: StatsBoxProps) {
           <div className={`text-[22px] font-bold font-mono leading-none ${item.colorClass}`}>
             {stats[item.key].toLocaleString()}
           </div>
-          <div className="text-[10px] text-t2 mt-[2px]">{item.label}</div>
+          <div className="text-[12px] text-t2 mt-[2px]">{item.label}</div>
         </div>
       ))}
     </div>

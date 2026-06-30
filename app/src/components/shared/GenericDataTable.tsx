@@ -1,13 +1,14 @@
-﻿import type { InventoryRow } from '@/types';
-import { VCOLS } from '@/lib/constants';
+﻿import type { ColDef } from '@/types';
 import { esc } from '@/lib/utils';
-import { Pager } from './Pager';
+import { Pager } from '@/components/visor/Pager';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { calcReglaEntel } from '@/lib/exportXLSX';
 
-interface DataTableProps {
-  filtered: InventoryRow[];
-  pageRows: InventoryRow[];
+interface GenericDataTableProps<T extends object> {
+  cols: ColDef[];
+  filtered: T[];
+  pageRows: T[];
   page: number;
   pageSize: number;
   totalPages: number;
@@ -19,9 +20,12 @@ interface DataTableProps {
   onPage: (p: number) => void;
   onPageSize: (s: number) => void;
   onExport: () => void;
+  exportLabel?: string;
 }
 
-function hlCell(val: string, colKey: string, terms: string[]): string {
+const PAGE_SIZES = [25, 50, 100, 200];
+
+function renderCell(val: unknown, colKey: string): string {
   const v = String(val ?? '');
 
   if (colKey === 'monitored') {
@@ -31,6 +35,25 @@ function hlCell(val: string, colKey: string, terms: string[]): string {
     return '<span style="color:#8b96b8">N/A</span>';
   }
 
+  if (colKey === 'gReglaEntel' || colKey === 'ffcReglaEntel') {
+    // gFecha/ffcFecha is not passed here — value is pre-computed
+    if (v === 'SI') return '<span style="color:#22c55e;font-weight:600">SI</span>';
+    if (v === 'NO') return '<span style="color:#ef4444">NO</span>';
+    return '<span style="color:#8b96b8">—</span>';
+  }
+
+  if (colKey === 'reglaEntel') {
+    if (v === 'SI') return '<span style="color:#22c55e;font-weight:600">SI</span>';
+    if (v === 'NO') return '<span style="color:#ef4444">NO</span>';
+    return '<span style="color:#8b96b8">—</span>';
+  }
+
+  if (colKey === 'fuenteID') {
+    const color = v === 'Custom' || v === 'Hardware+Custom'
+      ? '#22c55e' : v === 'Hardware' ? '#a78bfa' : v === 'Inventory' ? '#60a5fa' : '#8b96b8';
+    return `<span style="color:${color}">${esc(v) || '—'}</span>`;
+  }
+
   if (!v) return '<span style="color:#8b96b8;font-style:italic">—</span>';
 
   if (colKey === 'genGuardian') {
@@ -38,41 +61,30 @@ function hlCell(val: string, colKey: string, terms: string[]): string {
     return `<span class="${cls}">${esc(v)}</span>`;
   }
 
-  if (colKey === 'vehicleInstallation') {
-    const d = new Date(v.slice(0, 10));
-    return isNaN(d.getTime()) ? esc(v) : `<span style="color:#a8b4d0">${esc(v.slice(0, 10))}</span>`;
+  if (colKey === 'datosMB' || colKey === 'datosGB') {
+    const n = parseFloat(v);
+    if (isNaN(n)) return esc(v);
+    return `<span style="color:#a8b4d0">${n.toLocaleString('es-CL', { maximumFractionDigits: 4 })}</span>`;
   }
 
-  for (const t of terms) {
-    const idx = v.toLowerCase().indexOf(t);
-    if (idx >= 0) {
-      return (
-        esc(v.slice(0, idx)) +
-        `<mark class="hl">${esc(v.slice(idx, idx + t.length))}</mark>` +
-        esc(v.slice(idx + t.length))
-      );
-    }
-  }
   return esc(v);
 }
 
-const PAGE_SIZES = [25, 50, 100, 200];
-
-export function DataTable({
-  filtered, pageRows, page, pageSize, totalPages,
+export function GenericDataTable<T extends object>({
+  cols, filtered, pageRows, page, pageSize, totalPages,
   sortCol, sortDir, filterMap, allCount,
-  onSort, onPage, onPageSize, onExport,
-}: DataTableProps) {
+  onSort, onPage, onPageSize, onExport, exportLabel,
+}: GenericDataTableProps<T>) {
   if (filtered.length === 0) {
     return (
       <div className="bg-s1 border border-b1 rounded-fleet">
         <div className="flex flex-col items-center py-12 px-5 gap-[10px] text-center">
           <div className="text-[36px] opacity-35">🔍</div>
           <div className="text-[15px] text-t2">
-            {allCount > 0 ? 'Sin resultados para estos filtros' : 'Sin datos cargados'}
+            {allCount > 0 ? 'Sin resultados para estos filtros' : 'Sin datos'}
           </div>
           <div className="text-[12px] font-mono text-t3">
-            {allCount > 0 ? 'Ajusta los filtros' : 'Carga un archivo XLSX'}
+            {allCount > 0 ? 'Ajusta los filtros' : 'Procesa los archivos o carga un XLSX'}
           </div>
         </div>
       </div>
@@ -82,48 +94,35 @@ export function DataTable({
   const start = isFinite(pageSize) ? (page - 1) * pageSize : 0;
   const end   = isFinite(pageSize) ? Math.min(start + pageSize, filtered.length) : filtered.length;
 
-  const termsByCol: Record<string, string[]> = {};
-  VCOLS.forEach(c => { termsByCol[c.key] = [...(filterMap[c.key] ?? new Set())]; });
-
   return (
     <div className="bg-s1 border border-b1 rounded-fleet overflow-hidden">
 
-      {/* Header */}
       <div className="flex items-center justify-between px-[14px] py-[10px] bg-s2 border-b border-b1">
         <span className="text-[12px] font-mono text-t2">
-          Filas{' '}
-          <b className="text-cyan">{start + 1}–{end}</b>
-          {' '}de{' '}
-          <b className="text-cyan">{filtered.length.toLocaleString()}</b>
+          Filas <b className="text-cyan">{start + 1}–{end}</b> de <b className="text-cyan">{filtered.length.toLocaleString()}</b>
         </span>
         <div className="flex items-center gap-2">
           <Button variant="green" size="sm" onClick={onExport}>
-            ⬇ Exportar vista ({filtered.length.toLocaleString()})
+            ⬇ {exportLabel ?? `Exportar vista (${filtered.length.toLocaleString()})`}
           </Button>
           <select
             value={pageSize}
             onChange={(e) => onPageSize(Number(e.target.value))}
             className="bg-s3 border border-b1 text-t2 font-mono text-[12px] px-[7px] py-[3px] rounded-[4px] outline-none cursor-pointer"
           >
-            {PAGE_SIZES.map(n => (
-              <option key={n} value={n}>{n}/pág</option>
-            ))}
+            {PAGE_SIZES.map(n => <option key={n} value={n}>{n}/pág</option>)}
             <option value={Infinity}>Todos</option>
           </select>
         </div>
       </div>
 
-      {/* Table */}
       <div className="overflow-x-auto" style={{ maxHeight: 'calc(100vh - 220px)', overflowY: 'auto' }}>
         <table className="w-full border-collapse text-[13.5px] font-mono">
           <thead>
             <tr>
-              <th className="bg-s3 text-t3 px-[11px] py-2 text-left whitespace-nowrap sticky top-0 z-[2] text-[11px] uppercase tracking-[0.8px] border-b border-b1 w-[32px]">
-                #
-              </th>
-              {VCOLS.map((col, ci) => {
+              <th className="bg-s3 text-t3 px-[11px] py-2 text-left whitespace-nowrap sticky top-0 z-[2] text-[11px] uppercase tracking-[0.8px] border-b border-b1 w-[32px]">#</th>
+              {cols.map((col, ci) => {
                 const isActive = sortCol === ci;
-                const indicator = isActive ? (sortDir === 1 ? '↑' : '↓') : '↕';
                 return (
                   <th
                     key={col.key}
@@ -136,7 +135,7 @@ export function DataTable({
                   >
                     {col.label}
                     <span className={cn('ml-[3px]', isActive ? 'text-cyan' : 'opacity-25')}>
-                      {indicator}
+                      {isActive ? (sortDir === 1 ? '↑' : '↓') : '↕'}
                     </span>
                   </th>
                 );
@@ -149,18 +148,20 @@ export function DataTable({
                 key={start + li}
                 className="border-b border-b1/50 hover:bg-cyan/[0.04] transition-colors duration-100"
               >
-                <td className="px-2 py-2 text-right text-t4 w-[34px] text-[12px]">
-                  {start + li + 1}
-                </td>
-                {VCOLS.map(col => (
-                  <td
-                    key={col.key}
-                    className="px-[11px] py-2 text-t1 whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis"
-                    dangerouslySetInnerHTML={{
-                      __html: hlCell((row as unknown as Record<string, string>)[col.key] ?? '', col.key, termsByCol[col.key] ?? []),
-                    }}
-                  />
-                ))}
+                <td className="px-2 py-2 text-right text-t4 w-[34px] text-[12px]">{start + li + 1}</td>
+                {cols.map(col => {
+                  const r = row as Record<string, unknown>;
+                  let val = r[col.key];
+                  if (col.key === 'gReglaEntel')   val = calcReglaEntel(String(r['gFecha']   ?? ''));
+                  if (col.key === 'ffcReglaEntel')  val = calcReglaEntel(String(r['ffcFecha'] ?? ''));
+                  return (
+                    <td
+                      key={col.key}
+                      className="px-[11px] py-2 text-t1 whitespace-nowrap max-w-[200px] overflow-hidden text-ellipsis"
+                      dangerouslySetInnerHTML={{ __html: renderCell(val, col.key) }}
+                    />
+                  );
+                })}
               </tr>
             ))}
           </tbody>
