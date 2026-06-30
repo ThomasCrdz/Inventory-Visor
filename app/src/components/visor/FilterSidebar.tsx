@@ -1,6 +1,8 @@
-﻿import type { InventoryRow } from '@/types';
+﻿import { useState } from 'react';
+import type { InventoryRow } from '@/types';
 import { FILTER_DEFS } from '@/lib/constants';
 import { FilterGroup } from './FilterGroup';
+import { ExpandCollapseAll } from '@/components/shared/ExpandCollapseAll';
 
 interface FilterSidebarProps {
   filterText: Record<string, string>;
@@ -17,6 +19,13 @@ export function FilterSidebar({
   onFilter,
   onClear,
 }: FilterSidebarProps) {
+  const [openMap, setOpenMap] = useState<Record<string, boolean>>({});
+
+  const toggle = (key: string) => setOpenMap(m => ({ ...m, [key]: !m[key] }));
+  const expandAll = () => setOpenMap(Object.fromEntries(FILTER_DEFS.map(d => [d.key, true])));
+  const collapseAll = () => setOpenMap({});
+  const allOpen = FILTER_DEFS.length > 0 && FILTER_DEFS.every(d => openMap[d.key]);
+
   return (
     <div className="bg-s1 border border-b1 rounded-fleet p-4 sticky top-[72px]">
 
@@ -33,6 +42,8 @@ export function FilterSidebar({
         </span>
       </div>
 
+      <ExpandCollapseAll allOpen={allOpen} onExpandAll={expandAll} onCollapseAll={collapseAll} />
+
       {/* Filter groups */}
       {FILTER_DEFS.map(def => (
         <FilterGroup
@@ -41,6 +52,8 @@ export function FilterSidebar({
           value={filterText[def.key] ?? ''}
           onChange={onFilter}
           collapsible
+          open={openMap[def.key] ?? false}
+          onToggle={toggle}
         />
       ))}
 
